@@ -13,15 +13,15 @@ import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.WritableArray
 import com.facebook.react.bridge.WritableMap
 import com.facebook.react.modules.core.PermissionAwareActivity
-import com.rejaul.printerkit.BluetoothPermissions
-import com.rejaul.printerkit.BluetoothPrinter
-import com.rejaul.printerkit.BluetoothPrinterDevice
-import com.rejaul.printerkit.BluetoothPrinterService
-import com.rejaul.printerkit.PrinterImageType
+import com.rezaul.printerkit.BluetoothPermissions
+import com.rezaul.printerkit.BluetoothPrinter
+import com.rezaul.printerkit.BluetoothPrinterDevice
+import com.rezaul.printerkit.BluetoothPrinterService
+import com.rezaul.printerkit.PrinterImageType
 import java.util.concurrent.Executors
 
 /**
- * Bridges [com.rejaul.printerkit.BluetoothPrinter] to React Native.
+ * Bridges [com.rezaul.printerkit.BluetoothPrinter] to React Native.
  *
  * Connect/print calls run through a bound [BluetoothPrinterService] (started once,
  * on module init) instead of a bare [BluetoothPrinter], so the connection survives
