@@ -13,7 +13,7 @@ const root = path.resolve(__dirname, '..');
 const config = withMetroConfig(getDefaultConfig(__dirname), {
   root,
   dirname: __dirname,
-  conditions: ['rezaul-react-native-printer-kit-source'],
+  conditions: ['rejaul-react-native-printer-kit-source'],
 });
 
 module.exports = config;

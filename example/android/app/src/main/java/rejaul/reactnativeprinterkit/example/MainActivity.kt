@@ -1,4 +1,4 @@
-package rezaul.reactnativeprinterkit.example
+package rejaul.reactnativeprinterkit.example
 
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate

@@ -7,7 +7,7 @@
     "allowUnreachableCode": false,
     "allowUnusedLabels": false,
     "customConditions": [
-      "rezaul-react-native-printer-kit-source",
+      "rejaul-react-native-printer-kit-source",
       "react-native-strict-api"
     ],
     "esModuleInterop": true,

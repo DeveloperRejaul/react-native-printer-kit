@@ -37,7 +37,7 @@ if (project.extensions.findByName("kotlin") == null) {
 apply plugin: "com.facebook.react"
 
 android {
-  namespace "com.rezaul.reactnativeprinterkit"
+  namespace "com.rejaul.reactnativeprinterkit"
 
   compileSdkVersion getExtOrDefault("compileSdkVersion")
 
