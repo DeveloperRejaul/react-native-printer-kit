@@ -16,6 +16,7 @@ buildscript {
   repositories {
     google()
     mavenCentral()
+    maven { url = uri("https://jitpack.io") }
   }
 
   dependencies {
@@ -50,6 +51,15 @@ android {
   }
 }
 
+repositories {
+  google()
+  mavenCentral()
+  // JitPack resolves this multi-module repo by its GitHub repo name
+  // (android-printer-kit), not the internal Gradle module name (printerkit).
+  maven { url = uri("https://jitpack.io") }
+}
+
 dependencies {
   implementation "com.facebook.react:react-android"
+  implementation("com.github.DeveloperRejaul:android-printer-kit:v0.0.3")
 }
