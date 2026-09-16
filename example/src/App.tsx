@@ -20,7 +20,7 @@ import {
   printText,
   requestBluetoothPermission,
   type BluetoothPrinterDevice,
-} from '@rezaul/react-native-printer-kit';
+} from '@rejaul/react-native-printer-kit';
 
 const SAMPLE_HTML = `
 <!DOCTYPE html>

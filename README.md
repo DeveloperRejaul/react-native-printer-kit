@@ -4,8 +4,8 @@ A professional-grade React Native module for printing directly to Bluetooth POS/
 
 > **Important:** This library is **exclusively for Android**. Bluetooth Classic SPP + ESC/POS is an Android-specific integration; iOS does not expose the APIs this relies on.
 
-[![npm version](https://img.shields.io/npm/v/@rezaul/react-native-printer-kit.svg)](https://www.npmjs.com/package/@rezaul/react-native-printer-kit)
-[![license](https://img.shields.io/npm/l/@rezaul/react-native-printer-kit.svg)](LICENSE)
+[![npm version](https://img.shields.io/npm/v/@rejaul/react-native-printer-kit.svg)](https://www.npmjs.com/package/@rejaul/react-native-printer-kit)
+[![license](https://img.shields.io/npm/l/@rejaul/react-native-printer-kit.svg)](LICENSE)
 [![Platform - Android Only](https://img.shields.io/badge/Platform-Android%20Only-green)]()
 [![Kotlin](https://img.shields.io/badge/Language-Kotlin-purple)]()
 [![TypeScript](https://img.shields.io/badge/TypeScript-Supported-blue)]()
@@ -47,9 +47,9 @@ This library speaks **Bluetooth Classic SPP + ESC/POS** — the standard used by
 ## Installation
 
 ```bash
-npm install @rezaul/react-native-printer-kit
+npm install @rejaul/react-native-printer-kit
 # or
-yarn add @rezaul/react-native-printer-kit
+yarn add @rejaul/react-native-printer-kit
 ```
 
 Nothing to configure manually — all required Bluetooth and foreground-service permissions are declared by the underlying native library's manifest and merge in automatically. You still need to request the runtime `BLUETOOTH_CONNECT` (Android 12+) and `POST_NOTIFICATIONS` (Android 13+) permissions at runtime — `requestBluetoothPermission()` handles both in one call; see [Permissions](#permissions) below.
@@ -64,7 +64,7 @@ import {
   connectPrinter,
   printText,
   printHtml,
-} from '@rezaul/react-native-printer-kit';
+} from '@rejaul/react-native-printer-kit';
 
 async function printReceipt() {
   // 1. Make sure Bluetooth permission is granted (Android 12+)
@@ -93,7 +93,7 @@ async function printReceipt() {
 import {
   hasBluetoothPermission,
   requestBluetoothPermission,
-} from '@rezaul/react-native-printer-kit';
+} from '@rejaul/react-native-printer-kit';
 
 // Synchronous check - always true below Android 12
 const granted = hasBluetoothPermission();

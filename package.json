@@ -1,5 +1,5 @@
 {
-  "name": "@rezaul/react-native-printer-kit",
+  "name": "@rejaul/react-native-printer-kit",
   "version": "0.1.0",
   "description": "Direct Bluetooth POS/thermal (ESC/POS) printer integration for React Native on Android — print raw text, images, PDFs, and full HTML/CSS content including Bangla and other non-Latin scripts.",
   "main": "./lib/module/index.js",
@@ -32,7 +32,7 @@
     "!**/.*"
   ],
   "scripts": {
-    "example": "yarn workspace @rezaul/react-native-printer-kit-example",
+    "example": "yarn workspace @rejaul/react-native-printer-kit-example",
     "clean": "del-cli android/build example/android/build example/android/app/build example/ios/build lib",
     "prepare": "bob build",
     "typecheck": "tsc",
