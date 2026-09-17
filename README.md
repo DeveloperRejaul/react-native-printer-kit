@@ -223,6 +223,8 @@ type PrintHtmlParams = {
 
 Connecting through this library keeps the printer connected even if the app is swiped away from Recents — the native side runs a foreground service that outlives the Activity/JS runtime. Every successful `connectPrinter()` call also remembers the device, so the next time the app is opened (even after being fully killed) it reconnects automatically without the user having to pick the printer again.
 
+`connectPrinter()` falls back to a direct RFCOMM channel if the standard SDP-based socket fails (common on printers with a broken SDP record), and `isConnectedPrinter()` reflects a real physical disconnect immediately (via Android's ACL-disconnect broadcast) instead of a stale flag that stays `true` after the printer silently drops the link.
+
 ## Printing Bangla / other non-Latin text
 
 ESC/POS printer firmware fonts only cover ASCII, so `printText()` can't render Bangla. For anything with non-Latin text, render it as an image instead — build a bitmap yourself and use `printImage()`/`printImageBase64()`, or write it as HTML/CSS and call `printHtml()`, which renders it with a real font via `WebView` and prints the result as a dithered raster image.

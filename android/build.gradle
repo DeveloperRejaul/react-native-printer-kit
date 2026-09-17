@@ -61,5 +61,5 @@ repositories {
 
 dependencies {
   implementation "com.facebook.react:react-android"
-  implementation("com.github.DeveloperRejaul:android-printer-kit:v0.0.10")
+  implementation("com.github.DeveloperRejaul:android-printer-kit:v0.0.11")
 }
