@@ -119,7 +119,7 @@ export default function App() {
 
   const onConnect = (device: BluetoothPrinterDevice) =>
     run(`connectPrinter(${device.address})`, async () => {
-      const ok = await connectPrinter(device.address);
+      const ok = await connectPrinter({ address: device.address });
       if (!ok) throw new Error('connectPrinter() returned false');
       setConnected(device);
       setShowPicker(false);
@@ -139,12 +139,12 @@ export default function App() {
 
   const onPrintText = () =>
     run('printText(text)', () =>
-      printText('PrinterKit Example\nprintText() OK')
+      printText({ text: 'PrinterKit Example\nprintText() OK' })
     );
 
   const onPrintHtml = () =>
     run('printHtml(html)', async () => {
-      const ok = await printHtml(SAMPLE_HTML);
+      const ok = await printHtml({ html: SAMPLE_HTML });
       if (!ok) throw new Error('printHtml() returned false');
     });
 

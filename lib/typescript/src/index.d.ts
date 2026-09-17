@@ -1,4 +1,4 @@
-import ReactNativePrinterKit, { type BluetoothPrinterDevice, type PrinterImageType } from './NativeReactNativePrinterKit.js';
+import ReactNativePrinterKit, { type BluetoothPrinterDevice, type ConnectPrinterParams, type HtmlToPdfParams, type PdfToImageParams, type PrinterImageType, type PrintHtmlParams, type PrintImageBase64Params, type PrintImageParams, type PrintPdfParams, type PrintTextParams } from './NativeReactNativePrinterKit.js';
 /**
  * Whether Bluetooth permission is already granted (always true below Android 12).
  */
@@ -16,7 +16,7 @@ export declare function getBondedBluetoothPrinters(): BluetoothPrinterDevice[];
  * survives the app being swiped from Recents, and is reconnected to
  * automatically the next time the app starts.
  */
-export declare function connectPrinter(address: string): Promise<boolean>;
+export declare function connectPrinter(params: ConnectPrinterParams): Promise<boolean>;
 /**
  * Disconnect from the current printer.
  */
@@ -33,34 +33,34 @@ export declare function getConnectedPrinter(): Promise<BluetoothPrinterDevice | 
  * Print raw text using the printer's built-in font (ASCII only - use
  * printHtml() for Bangla or other non-Latin scripts).
  */
-export declare function printText(text: string, feedLines?: number): Promise<void>;
+export declare function printText(params: PrintTextParams): Promise<void>;
 /**
  * Print an image file as an ESC/POS raster image.
- * @param printerWidthDots 384 for 58mm printers, 576 for 80mm printers (default 384).
+ * `printerWidthDots`: 384 for 58mm printers, 576 for 80mm printers (default 384).
  */
-export declare function printImage(imagePath: string, printerWidthDots?: number, feedLines?: number): Promise<void>;
+export declare function printImage(params: PrintImageParams): Promise<void>;
 /**
  * Print a base64-encoded image as an ESC/POS raster image.
  */
-export declare function printImageBase64(base64: string, printerWidthDots?: number, feedLines?: number): Promise<void>;
+export declare function printImageBase64(params: PrintImageBase64Params): Promise<void>;
 /**
  * Render a page of a PDF file to an image file. Returns the image path.
  */
-export declare function pdfToImage(pdfPath: string, imageType?: PrinterImageType, page?: number, targetWidthPx?: number): Promise<string>;
+export declare function pdfToImage(params: PdfToImageParams): Promise<string>;
 /**
  * Render a page of a PDF to an image, then print it.
  */
-export declare function printPdf(pdfPath: string, printerWidthDots?: number, page?: number, feedLines?: number): Promise<void>;
+export declare function printPdf(params: PrintPdfParams): Promise<void>;
 /**
  * Render HTML to a PDF file and return its path, or null on failure. See
  * NativeReactNativePrinterKit's Spec for what pageWidthDp/heightDp/minPageHeightDp control.
  */
-export declare function htmlToPdf(html: string, pageWidthDp?: number, heightDp?: number, minPageHeightDp?: number): Promise<string | null>;
+export declare function htmlToPdf(params: HtmlToPdfParams): Promise<string | null>;
 /**
  * Full pipeline: render HTML to PDF, then print it - the way to print Bangla
  * (or other non-Latin) text or any real HTML/CSS layout.
  */
-export declare function printHtml(html: string, printerWidthDots?: number, pageWidthDp?: number, heightDp?: number, minPageHeightDp?: number): Promise<boolean>;
-export type { BluetoothPrinterDevice, PrinterImageType };
+export declare function printHtml(params: PrintHtmlParams): Promise<boolean>;
+export type { BluetoothPrinterDevice, ConnectPrinterParams, HtmlToPdfParams, PdfToImageParams, PrinterImageType, PrintHtmlParams, PrintImageBase64Params, PrintImageParams, PrintPdfParams, PrintTextParams, };
 export default ReactNativePrinterKit;
 //# sourceMappingURL=index.d.ts.map

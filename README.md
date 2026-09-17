@@ -76,13 +76,13 @@ async function printReceipt() {
   // 2. List paired printers and connect to one
   const printers = getBondedBluetoothPrinters();
   if (printers.length === 0) return;
-  await connectPrinter(printers[0]!.address);
+  await connectPrinter({ address: printers[0]!.address });
 
   // 3a. Print plain text
-  await printText('Hello from PrinterKit');
+  await printText({ text: 'Hello from PrinterKit' });
 
   // 3b. Or print a full HTML receipt (Bangla, styling, everything)
-  const ok = await printHtml(myReceiptHtml);
+  const ok = await printHtml({ html: myReceiptHtml });
   console.log('Printed:', ok);
 }
 ```
@@ -113,12 +113,14 @@ Whether `BLUETOOTH_CONNECT` specifically is already granted (always `true` below
 #### `requestBluetoothPermission(): Promise<boolean>`
 Shows the system permission dialog(s) for whatever's needed on this Android version — `BLUETOOTH_CONNECT` (12+) and `POST_NOTIFICATIONS` (13+, for the persistent-connection notification's visibility) — and resolves based on `BLUETOOTH_CONNECT`'s result specifically. A denied `POST_NOTIFICATIONS` alone doesn't make this resolve `false`: printing still works, the notification just won't show.
 
+Every function that takes data (anything beyond a bare callback) takes a single params object instead of positional arguments, so new fields can be added later without breaking existing call sites.
+
 ### Connection
 
 #### `getBondedBluetoothPrinters(): BluetoothPrinterDevice[]`
 Lists Bluetooth devices already paired with the phone via Android's own Bluetooth settings.
 
-#### `connectPrinter(address: string): Promise<boolean>`
+#### `connectPrinter(params: ConnectPrinterParams): Promise<boolean>`
 Opens an RFCOMM/SPP connection to the paired printer. Closes any existing connection first, and remembers the address for auto-reconnect on the next app launch.
 
 #### `disconnectPrinter(): Promise<void>`
@@ -132,26 +134,26 @@ The currently connected printer, if any.
 
 ### Printing
 
-#### `printText(text: string, feedLines?: number): Promise<void>`
+#### `printText(params: PrintTextParams): Promise<void>`
 Prints raw text using the printer's built-in font. **ASCII only** — use `printHtml()` for Bangla or other non-Latin scripts.
 
-#### `printImage(imagePath: string, printerWidthDots?: number, feedLines?: number): Promise<void>`
+#### `printImage(params: PrintImageParams): Promise<void>`
 Prints an image file as a dithered ESC/POS raster image. `printerWidthDots`: 384 for 58mm printers, 576 for 80mm printers (default 384).
 
-#### `printImageBase64(base64: string, printerWidthDots?: number, feedLines?: number): Promise<void>`
+#### `printImageBase64(params: PrintImageBase64Params): Promise<void>`
 Same as above, from a base64-encoded image string.
 
-#### `pdfToImage(pdfPath: string, imageType?: 'PNG' | 'JPEG', page?: number, targetWidthPx?: number): Promise<string>`
+#### `pdfToImage(params: PdfToImageParams): Promise<string>`
 Renders one PDF page to an image file and returns its path.
 
-#### `printPdf(pdfPath: string, printerWidthDots?: number, page?: number, feedLines?: number): Promise<void>`
+#### `printPdf(params: PrintPdfParams): Promise<void>`
 `pdfToImage` + print, in one call.
 
-#### `htmlToPdf(html: string, pageWidthDp?: number, heightDp?: number, minPageHeightDp?: number): Promise<string | null>`
+#### `htmlToPdf(params: HtmlToPdfParams): Promise<string | null>`
 Renders HTML to a PDF file using an off-screen `WebView` and returns its path, or `null` on failure. `pageWidthDp` controls how large the content renders (like a CSS viewport width), independent of the final printed width. Leave `heightDp` unset to auto-measure the real content height (recommended).
 
-#### `printHtml(html: string, printerWidthDots?: number, pageWidthDp?: number, heightDp?: number, minPageHeightDp?: number): Promise<boolean>`
-Full pipeline: `htmlToPdf` → `printPdf`. This is how you print Bangla (or other non-Latin) text or any real HTML/CSS layout.
+#### `printHtml(params: PrintHtmlParams): Promise<boolean>`
+Full pipeline: `htmlToPdf` → `printPdf`. This is how you print Bangla (or other non-Latin) text or any real HTML/CSS layout. Retries once (reconnect + resend) if the underlying write fails, e.g. from a "Broken pipe" when a cheap board drops the link mid-print.
 
 ## Type Definitions
 
@@ -162,6 +164,38 @@ type BluetoothPrinterDevice = {
 };
 
 type PrinterImageType = 'PNG' | 'JPEG';
+
+type ConnectPrinterParams = { address: string };
+
+type PrintTextParams = { text: string; feedLines?: number };
+
+type PrintImageParams = { imagePath: string; printerWidthDots?: number; feedLines?: number };
+
+type PrintImageBase64Params = { base64: string; printerWidthDots?: number; feedLines?: number };
+
+type PdfToImageParams = {
+  pdfPath: string;
+  imageType?: PrinterImageType;
+  page?: number;
+  targetWidthPx?: number;
+};
+
+type PrintPdfParams = { pdfPath: string; printerWidthDots?: number; page?: number; feedLines?: number };
+
+type HtmlToPdfParams = {
+  html: string;
+  pageWidthDp?: number;
+  heightDp?: number;
+  minPageHeightDp?: number;
+};
+
+type PrintHtmlParams = {
+  html: string;
+  printerWidthDots?: number;
+  pageWidthDp?: number;
+  heightDp?: number;
+  minPageHeightDp?: number;
+};
 ```
 
 ## Persistent connection & auto-reconnect

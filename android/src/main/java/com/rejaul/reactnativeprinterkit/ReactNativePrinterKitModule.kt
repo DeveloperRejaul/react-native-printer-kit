@@ -10,6 +10,7 @@ import androidx.core.content.ContextCompat
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
+import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.bridge.WritableArray
 import com.facebook.react.bridge.WritableMap
 import com.facebook.react.modules.core.PermissionAwareActivity
@@ -17,8 +18,24 @@ import com.rezaul.printerkit.BluetoothPermissions
 import com.rezaul.printerkit.BluetoothPrinter
 import com.rezaul.printerkit.BluetoothPrinterDevice
 import com.rezaul.printerkit.BluetoothPrinterService
+import com.rezaul.printerkit.ConnectPrinterParams
+import com.rezaul.printerkit.HtmlToPdfParams
+import com.rezaul.printerkit.PdfToImageParams
+import com.rezaul.printerkit.PrintHtmlParams
+import com.rezaul.printerkit.PrintImageBase64Params
+import com.rezaul.printerkit.PrintImageFileParams
+import com.rezaul.printerkit.PrintPdfParams
 import com.rezaul.printerkit.PrinterImageType
+import com.rezaul.printerkit.PrintTextParams
 import java.util.concurrent.Executors
+
+/** Reads an optional numeric field, falling back to [default] if absent/null. */
+private fun ReadableMap.optInt(key: String, default: Int): Int =
+  if (hasKey(key) && !isNull(key)) getDouble(key).toInt() else default
+
+/** Reads an optional numeric field, or null if absent/null. */
+private fun ReadableMap.optIntOrNull(key: String): Int? =
+  if (hasKey(key) && !isNull(key)) getDouble(key).toInt() else null
 
 /**
  * Bridges [com.rezaul.printerkit.BluetoothPrinter] to React Native.
@@ -32,6 +49,10 @@ import java.util.concurrent.Executors
  * All blocking Bluetooth/PDF/image I/O runs on a single background executor, off the
  * calling (JS) thread - also serializing printer writes, since concurrent writes to
  * the same socket from two overlapping calls would corrupt the output.
+ *
+ * Every JS-facing method that takes data receives a single [ReadableMap] (the object
+ * param the TS Spec declares), matching [com.rezaul.printerkit.BluetoothPrinter]'s own
+ * single-params-object functions on the native side.
  */
 class ReactNativePrinterKitModule(reactContext: ReactApplicationContext) :
   NativeReactNativePrinterKitSpec(reactContext) {
@@ -126,11 +147,16 @@ class ReactNativePrinterKitModule(reactContext: ReactApplicationContext) :
     return result
   }
 
-  override fun connectPrinter(address: String, promise: Promise) {
+  override fun connectPrinter(params: ReadableMap, promise: Promise) {
+    val address = params.getString("address")
+    if (address == null) {
+      promise.reject("ERROR", "address is required")
+      return
+    }
     withService { service ->
       executor.execute {
         try {
-          promise.resolve(service.connectAndKeepAlive(address))
+          promise.resolve(service.connectAndKeepAlive(ConnectPrinterParams(address)))
         } catch (e: Exception) {
           promise.reject("ERROR", e.message)
         }
@@ -176,11 +202,16 @@ class ReactNativePrinterKitModule(reactContext: ReactApplicationContext) :
     }
   }
 
-  override fun printText(text: String, feedLines: Double?, promise: Promise) {
+  override fun printText(params: ReadableMap, promise: Promise) {
+    val text = params.getString("text")
+    if (text == null) {
+      promise.reject("ERROR", "text is required")
+      return
+    }
     withService { service ->
       executor.execute {
         try {
-          service.printer.printText(text, (feedLines ?: 3.0).toInt())
+          service.printer.printText(PrintTextParams(text, params.optInt("feedLines", 3)))
           promise.resolve(null)
         } catch (e: Exception) {
           promise.reject("ERROR", e.message)
@@ -189,11 +220,22 @@ class ReactNativePrinterKitModule(reactContext: ReactApplicationContext) :
     }
   }
 
-  override fun printImage(imagePath: String, printerWidthDots: Double?, feedLines: Double?, promise: Promise) {
+  override fun printImage(params: ReadableMap, promise: Promise) {
+    val imagePath = params.getString("imagePath")
+    if (imagePath == null) {
+      promise.reject("ERROR", "imagePath is required")
+      return
+    }
     withService { service ->
       executor.execute {
         try {
-          service.printer.printImageFile(imagePath, (printerWidthDots ?: 384.0).toInt(), (feedLines ?: 3.0).toInt())
+          service.printer.printImageFile(
+            PrintImageFileParams(
+              imagePath = imagePath,
+              printerWidthDots = params.optInt("printerWidthDots", 384),
+              feedLines = params.optInt("feedLines", 3)
+            )
+          )
           promise.resolve(null)
         } catch (e: Exception) {
           promise.reject("ERROR", e.message)
@@ -202,11 +244,22 @@ class ReactNativePrinterKitModule(reactContext: ReactApplicationContext) :
     }
   }
 
-  override fun printImageBase64(base64: String, printerWidthDots: Double?, feedLines: Double?, promise: Promise) {
+  override fun printImageBase64(params: ReadableMap, promise: Promise) {
+    val base64 = params.getString("base64")
+    if (base64 == null) {
+      promise.reject("ERROR", "base64 is required")
+      return
+    }
     withService { service ->
       executor.execute {
         try {
-          service.printer.printImageBase64(base64, (printerWidthDots ?: 384.0).toInt(), (feedLines ?: 3.0).toInt())
+          service.printer.printImageBase64(
+            PrintImageBase64Params(
+              base64 = base64,
+              printerWidthDots = params.optInt("printerWidthDots", 384),
+              feedLines = params.optInt("feedLines", 3)
+            )
+          )
           promise.resolve(null)
         } catch (e: Exception) {
           promise.reject("ERROR", e.message)
@@ -215,12 +268,28 @@ class ReactNativePrinterKitModule(reactContext: ReactApplicationContext) :
     }
   }
 
-  override fun pdfToImage(pdfPath: String, imageType: String?, page: Double?, targetWidthPx: Double?, promise: Promise) {
+  override fun pdfToImage(params: ReadableMap, promise: Promise) {
+    val pdfPath = params.getString("pdfPath")
+    if (pdfPath == null) {
+      promise.reject("ERROR", "pdfPath is required")
+      return
+    }
     withService { service ->
       executor.execute {
         try {
-          val type = if (imageType == "JPEG") PrinterImageType.JPEG else PrinterImageType.PNG
-          val path = service.printer.pdfToImage(pdfPath, type, (page ?: 0.0).toInt(), targetWidthPx?.toInt())
+          val imageType = if (params.getString("imageType") == "JPEG") {
+            PrinterImageType.JPEG
+          } else {
+            PrinterImageType.PNG
+          }
+          val path = service.printer.pdfToImage(
+            PdfToImageParams(
+              pdfPath = pdfPath,
+              imageType = imageType,
+              page = params.optInt("page", 0),
+              targetWidthPx = params.optIntOrNull("targetWidthPx")
+            )
+          )
           promise.resolve(path)
         } catch (e: Exception) {
           promise.reject("ERROR", e.message)
@@ -229,11 +298,23 @@ class ReactNativePrinterKitModule(reactContext: ReactApplicationContext) :
     }
   }
 
-  override fun printPdf(pdfPath: String, printerWidthDots: Double?, page: Double?, feedLines: Double?, promise: Promise) {
+  override fun printPdf(params: ReadableMap, promise: Promise) {
+    val pdfPath = params.getString("pdfPath")
+    if (pdfPath == null) {
+      promise.reject("ERROR", "pdfPath is required")
+      return
+    }
     withService { service ->
       executor.execute {
         try {
-          service.printer.printPdf(pdfPath, (printerWidthDots ?: 384.0).toInt(), (page ?: 0.0).toInt(), (feedLines ?: 3.0).toInt())
+          service.printer.printPdf(
+            PrintPdfParams(
+              pdfPath = pdfPath,
+              printerWidthDots = params.optInt("printerWidthDots", 384),
+              page = params.optInt("page", 0),
+              feedLines = params.optInt("feedLines", 3)
+            )
+          )
           promise.resolve(null)
         } catch (e: Exception) {
           promise.reject("ERROR", e.message)
@@ -242,34 +323,41 @@ class ReactNativePrinterKitModule(reactContext: ReactApplicationContext) :
     }
   }
 
-  override fun htmlToPdf(html: String, pageWidthDp: Double?, heightDp: Double?, minPageHeightDp: Double?, promise: Promise) {
+  override fun htmlToPdf(params: ReadableMap, promise: Promise) {
+    val html = params.getString("html")
+    if (html == null) {
+      promise.reject("ERROR", "html is required")
+      return
+    }
     withService { service ->
       service.printer.htmlToPdf(
-        html = html,
-        pageWidthDp = (pageWidthDp ?: 412.0).toInt(),
-        heightDp = heightDp?.toInt(),
-        minPageHeightDp = (minPageHeightDp ?: 1000.0).toInt()
+        HtmlToPdfParams(
+          html = html,
+          pageWidthDp = params.optInt("pageWidthDp", 412),
+          heightDp = params.optIntOrNull("heightDp"),
+          minPageHeightDp = params.optInt("minPageHeightDp", 1000)
+        )
       ) { path ->
         promise.resolve(path)
       }
     }
   }
 
-  override fun printHtml(
-    html: String,
-    printerWidthDots: Double?,
-    pageWidthDp: Double?,
-    heightDp: Double?,
-    minPageHeightDp: Double?,
-    promise: Promise
-  ) {
+  override fun printHtml(params: ReadableMap, promise: Promise) {
+    val html = params.getString("html")
+    if (html == null) {
+      promise.reject("ERROR", "html is required")
+      return
+    }
     withService { service ->
       service.printer.printHtml(
-        html = html,
-        printerWidthDots = (printerWidthDots ?: 384.0).toInt(),
-        pageWidthDp = (pageWidthDp ?: 412.0).toInt(),
-        heightDp = heightDp?.toInt(),
-        minPageHeightDp = (minPageHeightDp ?: 1000.0).toInt()
+        PrintHtmlParams(
+          html = html,
+          printerWidthDots = params.optInt("printerWidthDots", 384),
+          pageWidthDp = params.optInt("pageWidthDp", 412),
+          heightDp = params.optIntOrNull("heightDp"),
+          minPageHeightDp = params.optInt("minPageHeightDp", 1000)
+        )
       ) { ok ->
         promise.resolve(ok)
       }

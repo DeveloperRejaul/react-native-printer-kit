@@ -4,6 +4,48 @@ export type BluetoothPrinterDevice = {
     address: string;
 };
 export type PrinterImageType = 'PNG' | 'JPEG';
+export type ConnectPrinterParams = {
+    address: string;
+};
+export type PrintTextParams = {
+    text: string;
+    feedLines?: number;
+};
+export type PrintImageParams = {
+    imagePath: string;
+    printerWidthDots?: number;
+    feedLines?: number;
+};
+export type PrintImageBase64Params = {
+    base64: string;
+    printerWidthDots?: number;
+    feedLines?: number;
+};
+export type PdfToImageParams = {
+    pdfPath: string;
+    imageType?: PrinterImageType;
+    page?: number;
+    targetWidthPx?: number;
+};
+export type PrintPdfParams = {
+    pdfPath: string;
+    printerWidthDots?: number;
+    page?: number;
+    feedLines?: number;
+};
+export type HtmlToPdfParams = {
+    html: string;
+    pageWidthDp?: number;
+    heightDp?: number;
+    minPageHeightDp?: number;
+};
+export type PrintHtmlParams = {
+    html: string;
+    printerWidthDots?: number;
+    pageWidthDp?: number;
+    heightDp?: number;
+    minPageHeightDp?: number;
+};
 export interface Spec extends TurboModule {
     /**
      * Whether Bluetooth permission is already granted (always true below Android 12).
@@ -25,7 +67,7 @@ export interface Spec extends TurboModule {
      * app reconnects automatically next time it's opened (see the README's
      * "Persistent connection" section).
      */
-    connectPrinter(address: string): Promise<boolean>;
+    connectPrinter(params: ConnectPrinterParams): Promise<boolean>;
     /**
      * Closes the current printer connection, if any, and forgets it for auto-reconnect.
      */
@@ -42,43 +84,43 @@ export interface Spec extends TurboModule {
      * Print raw text using the printer's built-in font. ASCII only - not
      * suitable for Bangla or other non-Latin scripts, use printHtml() instead.
      */
-    printText(text: string, feedLines?: number): Promise<void>;
+    printText(params: PrintTextParams): Promise<void>;
     /**
      * Print an image file as a dithered ESC/POS raster image.
-     * @param printerWidthDots 384 for 58mm printers, 576 for 80mm printers (default 384).
+     * `printerWidthDots`: 384 for 58mm printers, 576 for 80mm printers (default 384).
      */
-    printImage(imagePath: string, printerWidthDots?: number, feedLines?: number): Promise<void>;
+    printImage(params: PrintImageParams): Promise<void>;
     /**
      * Print a base64-encoded image as a dithered ESC/POS raster image.
      */
-    printImageBase64(base64: string, printerWidthDots?: number, feedLines?: number): Promise<void>;
+    printImageBase64(params: PrintImageBase64Params): Promise<void>;
     /**
      * Renders a page of a PDF file to an image file (via Android's PdfRenderer)
      * and returns the image's absolute path.
      */
-    pdfToImage(pdfPath: string, imageType?: PrinterImageType, page?: number, targetWidthPx?: number): Promise<string>;
+    pdfToImage(params: PdfToImageParams): Promise<string>;
     /**
      * Renders a page of a PDF to an image, then prints it.
      */
-    printPdf(pdfPath: string, printerWidthDots?: number, page?: number, feedLines?: number): Promise<void>;
+    printPdf(params: PrintPdfParams): Promise<void>;
     /**
      * Renders HTML to a PDF file using an off-screen WebView (no external
      * library) and returns the PDF's absolute path, or null on failure.
      *
-     * @param pageWidthDp layout width in dp the HTML is rendered at - controls
-     *   how large the content looks relative to the page, independent of the
-     *   final printed width (printerWidthDots on printHtml/printPdf downscales it).
-     * @param heightDp if set, forces the page to exactly this height (dp) instead
-     *   of auto-measuring the HTML's real content height.
-     * @param minPageHeightDp ignored if heightDp is set - a height floor (dp) for
-     *   auto-measured content, only relevant for very short/empty HTML.
+     * `pageWidthDp` is the layout width the HTML is rendered at - controls how
+     * large the content looks relative to the page, independent of the final
+     * printed width (`printerWidthDots` on printHtml/printPdf downscales it).
+     * `heightDp`, if set, forces the page to exactly this height (dp) instead
+     * of auto-measuring the HTML's real content height. `minPageHeightDp` is
+     * ignored if `heightDp` is set - a height floor (dp) for auto-measured
+     * content, only relevant for very short/empty HTML.
      */
-    htmlToPdf(html: string, pageWidthDp?: number, heightDp?: number, minPageHeightDp?: number): Promise<string | null>;
+    htmlToPdf(params: HtmlToPdfParams): Promise<string | null>;
     /**
      * Full pipeline: htmlToPdf -> printPdf, in one call. This is how to print
      * content with Bangla or other non-Latin text, or any real HTML/CSS layout.
      */
-    printHtml(html: string, printerWidthDots?: number, pageWidthDp?: number, heightDp?: number, minPageHeightDp?: number): Promise<boolean>;
+    printHtml(params: PrintHtmlParams): Promise<boolean>;
 }
 declare const _default: Spec;
 export default _default;

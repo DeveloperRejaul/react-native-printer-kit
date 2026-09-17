@@ -1,6 +1,6 @@
 {
   "name": "@rejaul/react-native-printer-kit",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Direct Bluetooth POS/thermal (ESC/POS) printer integration for React Native on Android — print raw text, images, PDFs, and full HTML/CSS content including Bangla and other non-Latin scripts.",
   "main": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",

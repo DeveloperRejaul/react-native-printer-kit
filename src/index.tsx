@@ -1,6 +1,14 @@
 import ReactNativePrinterKit, {
   type BluetoothPrinterDevice,
+  type ConnectPrinterParams,
+  type HtmlToPdfParams,
+  type PdfToImageParams,
   type PrinterImageType,
+  type PrintHtmlParams,
+  type PrintImageBase64Params,
+  type PrintImageParams,
+  type PrintPdfParams,
+  type PrintTextParams,
 } from './NativeReactNativePrinterKit';
 
 /**
@@ -29,8 +37,8 @@ export function getBondedBluetoothPrinters(): BluetoothPrinterDevice[] {
  * survives the app being swiped from Recents, and is reconnected to
  * automatically the next time the app starts.
  */
-export function connectPrinter(address: string): Promise<boolean> {
-  return ReactNativePrinterKit.connectPrinter(address);
+export function connectPrinter(params: ConnectPrinterParams): Promise<boolean> {
+  return ReactNativePrinterKit.connectPrinter(params);
 }
 
 /**
@@ -58,92 +66,68 @@ export function getConnectedPrinter(): Promise<BluetoothPrinterDevice | null> {
  * Print raw text using the printer's built-in font (ASCII only - use
  * printHtml() for Bangla or other non-Latin scripts).
  */
-export function printText(text: string, feedLines?: number): Promise<void> {
-  return ReactNativePrinterKit.printText(text, feedLines);
+export function printText(params: PrintTextParams): Promise<void> {
+  return ReactNativePrinterKit.printText(params);
 }
 
 /**
  * Print an image file as an ESC/POS raster image.
- * @param printerWidthDots 384 for 58mm printers, 576 for 80mm printers (default 384).
+ * `printerWidthDots`: 384 for 58mm printers, 576 for 80mm printers (default 384).
  */
-export function printImage(
-  imagePath: string,
-  printerWidthDots?: number,
-  feedLines?: number
-): Promise<void> {
-  return ReactNativePrinterKit.printImage(imagePath, printerWidthDots, feedLines);
+export function printImage(params: PrintImageParams): Promise<void> {
+  return ReactNativePrinterKit.printImage(params);
 }
 
 /**
  * Print a base64-encoded image as an ESC/POS raster image.
  */
-export function printImageBase64(
-  base64: string,
-  printerWidthDots?: number,
-  feedLines?: number
-): Promise<void> {
-  return ReactNativePrinterKit.printImageBase64(base64, printerWidthDots, feedLines);
+export function printImageBase64(params: PrintImageBase64Params): Promise<void> {
+  return ReactNativePrinterKit.printImageBase64(params);
 }
 
 /**
  * Render a page of a PDF file to an image file. Returns the image path.
  */
-export function pdfToImage(
-  pdfPath: string,
-  imageType?: PrinterImageType,
-  page?: number,
-  targetWidthPx?: number
-): Promise<string> {
-  return ReactNativePrinterKit.pdfToImage(pdfPath, imageType, page, targetWidthPx);
+export function pdfToImage(params: PdfToImageParams): Promise<string> {
+  return ReactNativePrinterKit.pdfToImage(params);
 }
 
 /**
  * Render a page of a PDF to an image, then print it.
  */
-export function printPdf(
-  pdfPath: string,
-  printerWidthDots?: number,
-  page?: number,
-  feedLines?: number
-): Promise<void> {
-  return ReactNativePrinterKit.printPdf(pdfPath, printerWidthDots, page, feedLines);
+export function printPdf(params: PrintPdfParams): Promise<void> {
+  return ReactNativePrinterKit.printPdf(params);
 }
 
 /**
  * Render HTML to a PDF file and return its path, or null on failure. See
  * NativeReactNativePrinterKit's Spec for what pageWidthDp/heightDp/minPageHeightDp control.
  */
-export function htmlToPdf(
-  html: string,
-  pageWidthDp?: number,
-  heightDp?: number,
-  minPageHeightDp?: number
-): Promise<string | null> {
-  return ReactNativePrinterKit.htmlToPdf(html, pageWidthDp, heightDp, minPageHeightDp);
+export function htmlToPdf(params: HtmlToPdfParams): Promise<string | null> {
+  return ReactNativePrinterKit.htmlToPdf(params);
 }
 
 /**
  * Full pipeline: render HTML to PDF, then print it - the way to print Bangla
  * (or other non-Latin) text or any real HTML/CSS layout.
  */
-export function printHtml(
-  html: string,
-  printerWidthDots?: number,
-  pageWidthDp?: number,
-  heightDp?: number,
-  minPageHeightDp?: number
-): Promise<boolean> {
-  return ReactNativePrinterKit.printHtml(
-    html,
-    printerWidthDots,
-    pageWidthDp,
-    heightDp,
-    minPageHeightDp
-  );
+export function printHtml(params: PrintHtmlParams): Promise<boolean> {
+  return ReactNativePrinterKit.printHtml(params);
 }
 
 // Export types
-export type { BluetoothPrinterDevice, PrinterImageType };
+export type {
+  BluetoothPrinterDevice,
+  ConnectPrinterParams,
+  HtmlToPdfParams,
+  PdfToImageParams,
+  PrinterImageType,
+  PrintHtmlParams,
+  PrintImageBase64Params,
+  PrintImageParams,
+  PrintPdfParams,
+  PrintTextParams,
+};
 
 // Export native module
 export default ReactNativePrinterKit;
