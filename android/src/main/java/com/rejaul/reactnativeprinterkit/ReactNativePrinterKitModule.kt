@@ -37,6 +37,10 @@ private fun ReadableMap.optInt(key: String, default: Int): Int =
 private fun ReadableMap.optIntOrNull(key: String): Int? =
   if (hasKey(key) && !isNull(key)) getDouble(key).toInt() else null
 
+/** Reads an optional numeric field as a Long, falling back to [default] if absent/null. */
+private fun ReadableMap.optLong(key: String, default: Long): Long =
+  if (hasKey(key) && !isNull(key)) getDouble(key).toLong() else default
+
 /**
  * Bridges [com.rezaul.printerkit.BluetoothPrinter] to React Native.
  *
@@ -233,7 +237,9 @@ class ReactNativePrinterKitModule(reactContext: ReactApplicationContext) :
             PrintImageFileParams(
               imagePath = imagePath,
               printerWidthDots = params.optInt("printerWidthDots", 384),
-              feedLines = params.optInt("feedLines", 3)
+              feedLines = params.optInt("feedLines", 3),
+              bandHeightDots = params.optInt("bandHeightDots", 16),
+              bandDelayMs = params.optLong("bandDelayMs", 60L)
             )
           )
           promise.resolve(null)
@@ -257,7 +263,9 @@ class ReactNativePrinterKitModule(reactContext: ReactApplicationContext) :
             PrintImageBase64Params(
               base64 = base64,
               printerWidthDots = params.optInt("printerWidthDots", 384),
-              feedLines = params.optInt("feedLines", 3)
+              feedLines = params.optInt("feedLines", 3),
+              bandHeightDots = params.optInt("bandHeightDots", 16),
+              bandDelayMs = params.optLong("bandDelayMs", 60L)
             )
           )
           promise.resolve(null)
@@ -312,7 +320,9 @@ class ReactNativePrinterKitModule(reactContext: ReactApplicationContext) :
               pdfPath = pdfPath,
               printerWidthDots = params.optInt("printerWidthDots", 384),
               page = params.optInt("page", 0),
-              feedLines = params.optInt("feedLines", 3)
+              feedLines = params.optInt("feedLines", 3),
+              bandHeightDots = params.optInt("bandHeightDots", 16),
+              bandDelayMs = params.optLong("bandDelayMs", 60L)
             )
           )
           promise.resolve(null)
@@ -356,7 +366,9 @@ class ReactNativePrinterKitModule(reactContext: ReactApplicationContext) :
           printerWidthDots = params.optInt("printerWidthDots", 384),
           pageWidthDp = params.optInt("pageWidthDp", 412),
           heightDp = params.optIntOrNull("heightDp"),
-          minPageHeightDp = params.optInt("minPageHeightDp", 1000)
+          minPageHeightDp = params.optInt("minPageHeightDp", 1000),
+          bandHeightDots = params.optInt("bandHeightDots", 16),
+          bandDelayMs = params.optLong("bandDelayMs", 60L)
         )
       ) { ok ->
         promise.resolve(ok)

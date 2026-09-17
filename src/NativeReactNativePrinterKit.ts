@@ -20,12 +20,20 @@ export type PrintImageParams = {
   imagePath: string;
   printerWidthDots?: number;
   feedLines?: number;
+  /** Height (in dots) of each raster band sent to the printer. Lower this for printers with a small receive buffer that drop or garble large images. Default 16. */
+  bandHeightDots?: number;
+  /** Pause (ms) between raster bands, giving the printer time to catch up. Default 60. */
+  bandDelayMs?: number;
 };
 
 export type PrintImageBase64Params = {
   base64: string;
   printerWidthDots?: number;
   feedLines?: number;
+  /** See PrintImageParams.bandHeightDots. */
+  bandHeightDots?: number;
+  /** See PrintImageParams.bandDelayMs. */
+  bandDelayMs?: number;
 };
 
 export type PdfToImageParams = {
@@ -40,6 +48,10 @@ export type PrintPdfParams = {
   printerWidthDots?: number;
   page?: number;
   feedLines?: number;
+  /** See PrintImageParams.bandHeightDots. */
+  bandHeightDots?: number;
+  /** See PrintImageParams.bandDelayMs. */
+  bandDelayMs?: number;
 };
 
 export type HtmlToPdfParams = {
@@ -55,6 +67,10 @@ export type PrintHtmlParams = {
   pageWidthDp?: number;
   heightDp?: number;
   minPageHeightDp?: number;
+  /** See PrintImageParams.bandHeightDots. */
+  bandHeightDots?: number;
+  /** See PrintImageParams.bandDelayMs. */
+  bandDelayMs?: number;
 };
 
 export interface Spec extends TurboModule {

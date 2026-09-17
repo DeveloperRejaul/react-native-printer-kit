@@ -169,9 +169,21 @@ type ConnectPrinterParams = { address: string };
 
 type PrintTextParams = { text: string; feedLines?: number };
 
-type PrintImageParams = { imagePath: string; printerWidthDots?: number; feedLines?: number };
+type PrintImageParams = {
+  imagePath: string;
+  printerWidthDots?: number;
+  feedLines?: number;
+  bandHeightDots?: number; // default 16 - lower for printers that drop/garble large images
+  bandDelayMs?: number; // default 60 - raise for printers that drop/garble large images
+};
 
-type PrintImageBase64Params = { base64: string; printerWidthDots?: number; feedLines?: number };
+type PrintImageBase64Params = {
+  base64: string;
+  printerWidthDots?: number;
+  feedLines?: number;
+  bandHeightDots?: number;
+  bandDelayMs?: number;
+};
 
 type PdfToImageParams = {
   pdfPath: string;
@@ -180,7 +192,14 @@ type PdfToImageParams = {
   targetWidthPx?: number;
 };
 
-type PrintPdfParams = { pdfPath: string; printerWidthDots?: number; page?: number; feedLines?: number };
+type PrintPdfParams = {
+  pdfPath: string;
+  printerWidthDots?: number;
+  page?: number;
+  feedLines?: number;
+  bandHeightDots?: number;
+  bandDelayMs?: number;
+};
 
 type HtmlToPdfParams = {
   html: string;
@@ -195,6 +214,8 @@ type PrintHtmlParams = {
   pageWidthDp?: number;
   heightDp?: number;
   minPageHeightDp?: number;
+  bandHeightDots?: number;
+  bandDelayMs?: number;
 };
 ```
 
