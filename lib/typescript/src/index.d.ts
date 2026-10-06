@@ -1,5 +1,10 @@
 import ReactNativePrinterKit, { type BluetoothPrinterDevice, type ConnectPrinterParams, type HtmlToPdfParams, type PdfToImageParams, type PrinterImageType, type PrintHtmlParams, type PrintImageBase64Params, type PrintImageParams, type PrintPdfParams, type PrintTextParams } from './NativeReactNativePrinterKit.js';
 /**
+ * Whether the device's Bluetooth adapter itself is turned on. Needs no runtime
+ * permission - check this before `hasBluetoothPermission`/`requestBluetoothPermission`.
+ */
+export declare function isBluetoothEnabled(): boolean;
+/**
  * Whether Bluetooth permission is already granted (always true below Android 12).
  */
 export declare function hasBluetoothPermission(): boolean;

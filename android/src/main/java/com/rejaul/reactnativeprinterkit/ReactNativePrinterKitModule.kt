@@ -111,6 +111,10 @@ class ReactNativePrinterKitModule(reactContext: ReactApplicationContext) :
     return map
   }
 
+  override fun isBluetoothEnabled(): Boolean {
+    return standalonePrinter.isBluetoothEnabled()
+  }
+
   override fun hasBluetoothPermission(): Boolean {
     return BluetoothPermissions.isGranted(reactApplicationContext)
   }
@@ -128,7 +132,15 @@ class ReactNativePrinterKitModule(reactContext: ReactApplicationContext) :
       promise.resolve(true)
       return
     }
-    val activity = currentActivity as? PermissionAwareActivity
+    // Go through reactApplicationContext.currentActivity rather than the bare
+    // currentActivity getter inherited from ReactContextBaseJavaModule: that base
+    // class moved from Java to Kotlin in RN 0.87, and Kotlin only synthesizes a
+    // property from a Java getter - once the declaring class itself is Kotlin,
+    // `currentActivity` stops resolving and you must call getCurrentActivity().
+    // ReactContext (the type reactApplicationContext returns) is still Java on
+    // every RN version this library supports, so this form works unconditionally
+    // on both old and new React Native without a version check.
+    val activity = reactApplicationContext.currentActivity as? PermissionAwareActivity
     if (activity == null) {
       promise.reject("NO_ACTIVITY", "No current activity to request permission from")
       return

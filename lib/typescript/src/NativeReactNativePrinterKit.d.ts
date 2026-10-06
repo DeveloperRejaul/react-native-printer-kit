@@ -64,6 +64,13 @@ export type PrintHtmlParams = {
 };
 export interface Spec extends TurboModule {
     /**
+     * Whether the device's Bluetooth adapter itself is turned on. Needs no runtime
+     * permission - check this before `hasBluetoothPermission`/`requestBluetoothPermission`
+     * so a disabled adapter can be reported as "turn on Bluetooth" rather than
+     * "grant permission".
+     */
+    isBluetoothEnabled(): boolean;
+    /**
      * Whether Bluetooth permission is already granted (always true below Android 12).
      */
     hasBluetoothPermission(): boolean;
