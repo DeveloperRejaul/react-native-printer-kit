@@ -1,6 +1,5 @@
 package com.rejaul.reactnativeprinterkit
 
-import android.bluetooth.BluetoothManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -113,8 +112,7 @@ class ReactNativePrinterKitModule(reactContext: ReactApplicationContext) :
   }
 
   override fun isBluetoothEnabled(): Boolean {
-    val manager = reactApplicationContext.getSystemService(BluetoothManager::class.java)
-    return manager?.adapter?.isEnabled == true
+    return standalonePrinter.isBluetoothEnabled()
   }
 
   override fun hasBluetoothPermission(): Boolean {
@@ -388,6 +386,11 @@ class ReactNativePrinterKitModule(reactContext: ReactApplicationContext) :
         promise.resolve(ok)
       }
     }
+  }
+
+  override fun openFile(params: ReadableMap): Boolean {
+    val path = params.getString("path") ?: return false
+    return standalonePrinter.openFile(path, params.getString("mimeType"))
   }
 
   companion object {

@@ -2,6 +2,7 @@ import ReactNativePrinterKit, {
   type BluetoothPrinterDevice,
   type ConnectPrinterParams,
   type HtmlToPdfParams,
+  type OpenFileParams,
   type PdfToImageParams,
   type PrinterImageType,
   type PrintHtmlParams,
@@ -123,11 +124,22 @@ export function printHtml(params: PrintHtmlParams): Promise<boolean> {
   return ReactNativePrinterKit.printHtml(params);
 }
 
+/**
+ * Opens a file with whatever app the user has installed that can handle its
+ * type (e.g. a PDF viewer) - shows the system's "Open with" chooser if more
+ * than one app matches. Returns false if the file doesn't exist or no app
+ * can open it.
+ */
+export function openFile(params: OpenFileParams): boolean {
+  return ReactNativePrinterKit.openFile(params);
+}
+
 // Export types
 export type {
   BluetoothPrinterDevice,
   ConnectPrinterParams,
   HtmlToPdfParams,
+  OpenFileParams,
   PdfToImageParams,
   PrinterImageType,
   PrintHtmlParams,

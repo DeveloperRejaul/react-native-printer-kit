@@ -62,6 +62,11 @@ export type PrintHtmlParams = {
     /** See PrintImageParams.bandDelayMs. */
     bandDelayMs?: number;
 };
+export type OpenFileParams = {
+    path: string;
+    /** Inferred from the file extension if not given. */
+    mimeType?: string;
+};
 export interface Spec extends TurboModule {
     /**
      * Whether the device's Bluetooth adapter itself is turned on. Needs no runtime
@@ -144,6 +149,13 @@ export interface Spec extends TurboModule {
      * content with Bangla or other non-Latin text, or any real HTML/CSS layout.
      */
     printHtml(params: PrintHtmlParams): Promise<boolean>;
+    /**
+     * Opens a file with whatever app the user has installed that can handle its
+     * type (e.g. a PDF viewer) - shows the system's "Open with" chooser if more
+     * than one app matches. `mimeType` is inferred from the file extension if
+     * not given. Returns false if the file doesn't exist or no app can open it.
+     */
+    openFile(params: OpenFileParams): boolean;
 }
 declare const _default: Spec;
 export default _default;

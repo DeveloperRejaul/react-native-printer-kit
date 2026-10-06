@@ -1,4 +1,4 @@
-import ReactNativePrinterKit, { type BluetoothPrinterDevice, type ConnectPrinterParams, type HtmlToPdfParams, type PdfToImageParams, type PrinterImageType, type PrintHtmlParams, type PrintImageBase64Params, type PrintImageParams, type PrintPdfParams, type PrintTextParams } from './NativeReactNativePrinterKit.js';
+import ReactNativePrinterKit, { type BluetoothPrinterDevice, type ConnectPrinterParams, type HtmlToPdfParams, type OpenFileParams, type PdfToImageParams, type PrinterImageType, type PrintHtmlParams, type PrintImageBase64Params, type PrintImageParams, type PrintPdfParams, type PrintTextParams } from './NativeReactNativePrinterKit.js';
 /**
  * Whether the device's Bluetooth adapter itself is turned on. Needs no runtime
  * permission - check this before `hasBluetoothPermission`/`requestBluetoothPermission`.
@@ -66,6 +66,13 @@ export declare function htmlToPdf(params: HtmlToPdfParams): Promise<string | nul
  * (or other non-Latin) text or any real HTML/CSS layout.
  */
 export declare function printHtml(params: PrintHtmlParams): Promise<boolean>;
-export type { BluetoothPrinterDevice, ConnectPrinterParams, HtmlToPdfParams, PdfToImageParams, PrinterImageType, PrintHtmlParams, PrintImageBase64Params, PrintImageParams, PrintPdfParams, PrintTextParams, };
+/**
+ * Opens a file with whatever app the user has installed that can handle its
+ * type (e.g. a PDF viewer) - shows the system's "Open with" chooser if more
+ * than one app matches. Returns false if the file doesn't exist or no app
+ * can open it.
+ */
+export declare function openFile(params: OpenFileParams): boolean;
+export type { BluetoothPrinterDevice, ConnectPrinterParams, HtmlToPdfParams, OpenFileParams, PdfToImageParams, PrinterImageType, PrintHtmlParams, PrintImageBase64Params, PrintImageParams, PrintPdfParams, PrintTextParams, };
 export default ReactNativePrinterKit;
 //# sourceMappingURL=index.d.ts.map
