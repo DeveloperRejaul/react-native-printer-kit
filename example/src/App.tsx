@@ -14,11 +14,16 @@ import {
   disconnectPrinter,
   getBondedBluetoothPrinters,
   getConnectedPrinter,
+  getPrinterStatus,
+  getUsbPrinters,
   hasBluetoothPermission,
   isConnectedPrinter,
+  isPrinterReady,
   printHtml,
+  printTestPage,
   printText,
   requestBluetoothPermission,
+  requestUsbPermission,
   type BluetoothPrinterDevice,
 } from '@rejaul/react-native-printer-kit';
 
@@ -91,12 +96,13 @@ export default function App() {
   }, [refreshConnected]);
 
   const run = useCallback(
-    async (label: string, action: () => Promise<void>) => {
+    async (label: string, action: () => Promise<void | string>) => {
       setActiveLabel(label);
       setStatus(`${label}...`);
       try {
-        await action();
-        setStatus(`${label}: OK`);
+        // An action may return a string to show as the result instead of "OK".
+        const detail = await action();
+        setStatus(typeof detail === 'string' ? detail : `${label}: OK`);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         setStatus(`${label} FAILED: ${message}`);
@@ -113,7 +119,8 @@ export default function App() {
         const granted = await requestBluetoothPermission();
         if (!granted) throw new Error('Bluetooth permission denied');
       }
-      setDevices(getBondedBluetoothPrinters());
+      // LIKELY_PRINTERS hides headphones, watches and other non-printers.
+      setDevices(getBondedBluetoothPrinters({ filter: 'LIKELY_PRINTERS' }));
       setShowPicker(true);
     });
 
@@ -125,6 +132,40 @@ export default function App() {
       setShowPicker(false);
     });
 
+  const onConnectUsb = () =>
+    run('connect USB printer', async () => {
+      const usb = getUsbPrinters()[0];
+      if (!usb) throw new Error('No USB printer found (plug it in via OTG)');
+      const granted = await requestUsbPermission({
+        vendorId: usb.vendorId,
+        productId: usb.productId,
+      });
+      if (!granted) throw new Error('USB permission denied');
+      const ok = await connectPrinter({
+        address: '',
+        type: 'USB',
+        vendorId: usb.vendorId,
+        productId: usb.productId,
+      });
+      if (!ok) throw new Error('connectPrinter() returned false');
+      await refreshConnected();
+    });
+
+  const onIsReady = () =>
+    run('isPrinterReady()', async () => {
+      const ready = await isPrinterReady();
+      return `isPrinterReady() = ${ready}`;
+    });
+
+  const onPrinterStatus = () =>
+    run('getPrinterStatus()', async () => {
+      const result = await getPrinterStatus();
+      // null = the printer did not report that field (unknown, not "ok").
+      return `getPrinterStatus() = ${JSON.stringify(result)}`;
+    });
+
+  const onTestPage = () => run('printTestPage()', () => printTestPage());
+
   const onDisconnect = () =>
     run('disconnectPrinter()', async () => {
       await disconnectPrinter();
@@ -134,7 +175,7 @@ export default function App() {
   const onIsConnected = () =>
     run('isConnectedPrinter()', async () => {
       const result = await isConnectedPrinter();
-      setStatus(`isConnectedPrinter() = ${result}`);
+      return `isConnectedPrinter() = ${result}`;
     });
 
   const onPrintText = () =>
@@ -172,6 +213,30 @@ export default function App() {
           busy={busy}
           activeLabel={activeLabel}
           onPress={onPickPrinters}
+        />
+        <ActionButton
+          label="connect USB printer"
+          busy={busy}
+          activeLabel={activeLabel}
+          onPress={onConnectUsb}
+        />
+        <ActionButton
+          label="isPrinterReady()"
+          busy={busy}
+          activeLabel={activeLabel}
+          onPress={onIsReady}
+        />
+        <ActionButton
+          label="getPrinterStatus()"
+          busy={busy}
+          activeLabel={activeLabel}
+          onPress={onPrinterStatus}
+        />
+        <ActionButton
+          label="printTestPage()"
+          busy={busy}
+          activeLabel={activeLabel}
+          onPress={onTestPage}
         />
         <ActionButton
           label="disconnectPrinter()"

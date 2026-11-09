@@ -15,18 +15,23 @@ import com.facebook.react.bridge.WritableArray
 import com.facebook.react.bridge.WritableMap
 import com.facebook.react.modules.core.PermissionAwareActivity
 import com.rezaul.printerkit.BluetoothPermissions
-import com.rezaul.printerkit.BluetoothPrinter
-import com.rezaul.printerkit.BluetoothPrinterDevice
-import com.rezaul.printerkit.BluetoothPrinterService
-import com.rezaul.printerkit.ConnectPrinterParams
-import com.rezaul.printerkit.HtmlToPdfParams
-import com.rezaul.printerkit.PdfToImageParams
-import com.rezaul.printerkit.PrintHtmlParams
-import com.rezaul.printerkit.PrintImageBase64Params
-import com.rezaul.printerkit.PrintImageFileParams
-import com.rezaul.printerkit.PrintPdfParams
-import com.rezaul.printerkit.PrinterImageType
-import com.rezaul.printerkit.PrintTextParams
+import com.rezaul.printerkit.PosPrinter
+import com.rezaul.printerkit.PrinterService
+import com.rezaul.printerkit.model.BluetoothPrinterDevice
+import com.rezaul.printerkit.model.ConnectPrinterParams
+import com.rezaul.printerkit.model.FileLocation
+import com.rezaul.printerkit.model.HtmlToPdfParams
+import com.rezaul.printerkit.model.PdfToImageParams
+import com.rezaul.printerkit.model.PrintHtmlParams
+import com.rezaul.printerkit.model.PrintImageBase64Params
+import com.rezaul.printerkit.model.PrintImageFileParams
+import com.rezaul.printerkit.model.PrintPdfParams
+import com.rezaul.printerkit.model.PrintTextParams
+import com.rezaul.printerkit.model.PrinterConnectionType
+import com.rezaul.printerkit.model.PrinterFilter
+import com.rezaul.printerkit.model.PrinterImageType
+import com.rezaul.printerkit.model.SaveFileParams
+import com.rezaul.printerkit.model.UsbPrinterDevice
 import java.util.concurrent.Executors
 
 /** Reads an optional numeric field, falling back to [default] if absent/null. */
@@ -41,21 +46,33 @@ private fun ReadableMap.optIntOrNull(key: String): Int? =
 private fun ReadableMap.optLong(key: String, default: Long): Long =
   if (hasKey(key) && !isNull(key)) getDouble(key).toLong() else default
 
+/** Reads an optional string field, or null if absent/null. */
+private fun ReadableMap.optString(key: String): String? =
+  if (hasKey(key) && !isNull(key)) getString(key) else null
+
+/** Reads an optional boolean field, falling back to [default] if absent/null. */
+private fun ReadableMap.optBoolean(key: String, default: Boolean): Boolean =
+  if (hasKey(key) && !isNull(key)) getBoolean(key) else default
+
+/** Parses an enum by name, falling back to [default] for a missing or unknown value. */
+private inline fun <reified T : Enum<T>> enumOrDefault(name: String?, default: T): T =
+  name?.let { runCatching { enumValueOf<T>(it) }.getOrNull() } ?: default
+
 /**
- * Bridges [com.rezaul.printerkit.BluetoothPrinter] to React Native.
+ * Bridges [com.rezaul.printerkit.PosPrinter] to React Native.
  *
- * Connect/print calls run through a bound [BluetoothPrinterService] (started once,
- * on module init) instead of a bare [BluetoothPrinter], so the connection survives
- * the app being swiped away from Recents - see [BluetoothPrinterService]. Calls made
+ * Connect/print calls run through a bound [PrinterService] (started once,
+ * on module init) instead of a bare [PosPrinter], so the connection survives
+ * the app being swiped away from Recents - see [PrinterService]. Calls made
  * before the service finishes binding (essentially instant, but not synchronous) are
  * queued and run once it connects.
  *
- * All blocking Bluetooth/PDF/image I/O runs on a single background executor, off the
+ * All blocking Bluetooth/USB/network/PDF/image I/O runs on a single background executor, off the
  * calling (JS) thread - also serializing printer writes, since concurrent writes to
  * the same socket from two overlapping calls would corrupt the output.
  *
  * Every JS-facing method that takes data receives a single [ReadableMap] (the object
- * param the TS Spec declares), matching [com.rezaul.printerkit.BluetoothPrinter]'s own
+ * param the TS Spec declares), matching [com.rezaul.printerkit.PosPrinter]'s own
  * single-params-object functions on the native side.
  */
 class ReactNativePrinterKitModule(reactContext: ReactApplicationContext) :
@@ -63,17 +80,17 @@ class ReactNativePrinterKitModule(reactContext: ReactApplicationContext) :
 
   private val executor = Executors.newSingleThreadExecutor()
 
-  // getBondedBluetoothPrinters() is synchronous (no connection involved) and must
-  // answer immediately, so it uses its own plain BluetoothPrinter rather than
-  // waiting on the service to bind.
-  private val standalonePrinter by lazy { BluetoothPrinter(reactApplicationContext) }
+  // getBondedBluetoothPrinters(), getUsbPrinters() and the USB permission calls need no
+  // connection and must answer immediately, so they use their own plain PosPrinter
+  // rather than waiting on the service to bind.
+  private val standalonePrinter by lazy { PosPrinter(reactApplicationContext) }
 
-  private var printerService: BluetoothPrinterService? = null
-  private val pendingActions = mutableListOf<(BluetoothPrinterService) -> Unit>()
+  private var printerService: PrinterService? = null
+  private val pendingActions = mutableListOf<(PrinterService) -> Unit>()
 
   private val serviceConnection = object : ServiceConnection {
     override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
-      val service = (binder as BluetoothPrinterService.LocalBinder).getService()
+      val service = (binder as PrinterService.LocalBinder).getService()
       printerService = service
       val queued = synchronized(pendingActions) {
         val copy = pendingActions.toList()
@@ -89,13 +106,13 @@ class ReactNativePrinterKitModule(reactContext: ReactApplicationContext) :
   }
 
   init {
-    val intent = Intent(reactApplicationContext, BluetoothPrinterService::class.java)
+    val intent = Intent(reactApplicationContext, PrinterService::class.java)
     reactApplicationContext.startService(intent)
     reactApplicationContext.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
   }
 
   /** Runs [action] with the bound service, once available (queued if not yet bound). */
-  private fun withService(action: (BluetoothPrinterService) -> Unit) {
+  private fun withService(action: (PrinterService) -> Unit) {
     val service = printerService
     if (service != null) {
       action(service)
@@ -108,6 +125,17 @@ class ReactNativePrinterKitModule(reactContext: ReactApplicationContext) :
     val map = Arguments.createMap()
     map.putString("name", device.name)
     map.putString("address", device.address)
+    map.putString("confidence", device.confidence.name)
+    map.putString("reason", device.reason)
+    return map
+  }
+
+  private fun usbToMap(device: UsbPrinterDevice): WritableMap {
+    val map = Arguments.createMap()
+    map.putString("name", device.name)
+    map.putInt("vendorId", device.vendorId)
+    map.putInt("productId", device.productId)
+    map.putString("deviceName", device.deviceName)
     return map
   }
 
@@ -155,24 +183,74 @@ class ReactNativePrinterKitModule(reactContext: ReactApplicationContext) :
     }
   }
 
-  override fun getBondedBluetoothPrinters(): WritableArray {
+  override fun getBondedBluetoothPrinters(params: ReadableMap): WritableArray {
+    val filter = enumOrDefault(params.optString("filter"), PrinterFilter.ALL)
+    val keywords = params.getArray("extraNameKeywords")?.let { array ->
+      (0 until array.size()).mapNotNull { array.getString(it) }
+    } ?: emptyList()
     val result: WritableArray = Arguments.createArray()
-    standalonePrinter.getBondedBluetoothPrinters().forEach { device ->
+    standalonePrinter.getBondedBluetoothPrinters(filter, keywords).forEach { device ->
       result.pushMap(deviceToMap(device))
     }
     return result
   }
 
+  override fun getUsbPrinters(): WritableArray {
+    val result: WritableArray = Arguments.createArray()
+    standalonePrinter.getUsbPrinters().forEach { device ->
+      result.pushMap(usbToMap(device))
+    }
+    return result
+  }
+
+  override fun hasUsbPermission(params: ReadableMap): Boolean {
+    if (!params.hasKey("vendorId") || !params.hasKey("productId")) return false
+    return standalonePrinter.hasUsbPermission(
+      params.getDouble("vendorId").toInt(),
+      params.getDouble("productId").toInt()
+    )
+  }
+
+  override fun requestUsbPermission(params: ReadableMap, promise: Promise) {
+    if (!params.hasKey("vendorId") || !params.hasKey("productId")) {
+      promise.reject("ERROR", "vendorId and productId are required")
+      return
+    }
+    try {
+      // The result arrives on the main thread once the user answers the system dialog.
+      standalonePrinter.requestUsbPermission(
+        params.getDouble("vendorId").toInt(),
+        params.getDouble("productId").toInt()
+      ) { granted -> promise.resolve(granted) }
+    } catch (e: Exception) {
+      promise.reject("ERROR", e.message)
+    }
+  }
+
   override fun connectPrinter(params: ReadableMap, promise: Promise) {
-    val address = params.getString("address")
+    val type = enumOrDefault(params.optString("type"), PrinterConnectionType.BLUETOOTH)
+    // USB printers are identified by vendorId/productId, so address may be empty for them.
+    val address = params.optString("address") ?: if (type == PrinterConnectionType.USB) "" else null
     if (address == null) {
       promise.reject("ERROR", "address is required")
       return
     }
+    val defaults = ConnectPrinterParams(address)
+    val connectParams = ConnectPrinterParams(
+      address = address,
+      notificationTitle = params.optString("notificationTitle") ?: defaults.notificationTitle,
+      type = type,
+      port = params.optInt("port", defaults.port),
+      timeoutMs = params.optInt("timeoutMs", defaults.timeoutMs),
+      vendorId = params.optIntOrNull("vendorId"),
+      productId = params.optIntOrNull("productId"),
+      disconnectedNotificationTitle =
+        params.optString("disconnectedNotificationTitle") ?: defaults.disconnectedNotificationTitle
+    )
     withService { service ->
       executor.execute {
         try {
-          promise.resolve(service.connectAndKeepAlive(ConnectPrinterParams(address)))
+          promise.resolve(service.connectAndKeepAlive(connectParams))
         } catch (e: Exception) {
           promise.reject("ERROR", e.message)
         }
@@ -214,6 +292,72 @@ class ReactNativePrinterKitModule(reactContext: ReactApplicationContext) :
         } catch (e: Exception) {
           promise.reject("ERROR", e.message)
         }
+      }
+    }
+  }
+
+  override fun isPrinterReady(promise: Promise) {
+    withService { service ->
+      executor.execute {
+        try {
+          promise.resolve(service.printer.isPrinterReady())
+        } catch (e: Exception) {
+          promise.reject("ERROR", e.message)
+        }
+      }
+    }
+  }
+
+  override fun getPrinterStatus(params: ReadableMap, promise: Promise) {
+    withService { service ->
+      executor.execute {
+        try {
+          val status = service.printer.getPrinterStatus(params.optInt("timeoutMs", 800))
+          // Unknown (null) fields must reach JS as null, which makeNativeMap preserves.
+          promise.resolve(Arguments.makeNativeMap(status.toMap()))
+        } catch (e: Exception) {
+          promise.reject("ERROR", e.message)
+        }
+      }
+    }
+  }
+
+  override fun printTestPage(promise: Promise) {
+    withService { service ->
+      executor.execute {
+        try {
+          service.printer.printTestPage()
+          promise.resolve(null)
+        } catch (e: Exception) {
+          promise.reject("ERROR", e.message)
+        }
+      }
+    }
+  }
+
+  override fun saveFile(params: ReadableMap, promise: Promise) {
+    val sourcePath = params.getString("sourcePath")
+    if (sourcePath == null) {
+      promise.reject("ERROR", "sourcePath is required")
+      return
+    }
+    executor.execute {
+      try {
+        val result = standalonePrinter.saveFile(
+          SaveFileParams(
+            sourcePath = sourcePath,
+            fileName = params.optString("fileName"),
+            location = enumOrDefault(params.optString("location"), FileLocation.DOWNLOADS),
+            customFolder = params.optString("customFolder"),
+            subFolder = params.optString("subFolder"),
+            mimeType = params.optString("mimeType"),
+            overwrite = params.optBoolean("overwrite", false),
+            deleteSource = params.optBoolean("deleteSource", false)
+          )
+        )
+        promise.resolve(Arguments.makeNativeMap(result.toMap()))
+      } catch (e: Exception) {
+        promise.reject("ERROR", e.message)
       }
     }
   }

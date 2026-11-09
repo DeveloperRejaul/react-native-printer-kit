@@ -1,15 +1,26 @@
 import ReactNativePrinterKit, {
   type BluetoothPrinterDevice,
   type ConnectPrinterParams,
+  type FileLocation,
+  type GetBondedPrintersParams,
   type HtmlToPdfParams,
   type OpenFileParams,
   type PdfToImageParams,
+  type PrinterConfidence,
+  type PrinterConnectionType,
+  type PrinterFilter,
   type PrinterImageType,
+  type PrinterStatus,
+  type PrinterStatusParams,
   type PrintHtmlParams,
   type PrintImageBase64Params,
   type PrintImageParams,
   type PrintPdfParams,
   type PrintTextParams,
+  type SaveFileParams,
+  type SaveFileResult,
+  type UsbDeviceParams,
+  type UsbPrinterDevice,
 } from './NativeReactNativePrinterKit';
 
 /**
@@ -35,16 +46,47 @@ export function requestBluetoothPermission(): Promise<boolean> {
 }
 
 /**
- * Get all Bluetooth devices already paired (bonded) with this device.
+ * Get the Bluetooth devices already paired (bonded) with this device, best printer
+ * matches first. Every device carries a `confidence`. Pass
+ * `{ filter: 'LIKELY_PRINTERS' }` to hide devices that do not look like printers
+ * (headphones, watches...), or `extraNameKeywords` for a printer with an unusual name.
  */
-export function getBondedBluetoothPrinters(): BluetoothPrinterDevice[] {
-  return ReactNativePrinterKit.getBondedBluetoothPrinters();
+export function getBondedBluetoothPrinters(
+  params: GetBondedPrintersParams = {}
+): BluetoothPrinterDevice[] {
+  return ReactNativePrinterKit.getBondedBluetoothPrinters(params);
 }
 
 /**
- * Connect to a paired Bluetooth printer by its MAC address. The connection
- * survives the app being swiped from Recents, and is reconnected to
- * automatically the next time the app starts.
+ * USB printers currently plugged in. Needs a phone with USB host (OTG).
+ */
+export function getUsbPrinters(): UsbPrinterDevice[] {
+  return ReactNativePrinterKit.getUsbPrinters();
+}
+
+/**
+ * Whether the user already granted this app access to that USB printer.
+ */
+export function hasUsbPermission(params: UsbDeviceParams): boolean {
+  return ReactNativePrinterKit.hasUsbPermission(params);
+}
+
+/**
+ * Shows the system USB permission dialog. Call before `connectPrinter` with
+ * `type: 'USB'`. The grant is lost when the app is reinstalled.
+ */
+export function requestUsbPermission(
+  params: UsbDeviceParams
+): Promise<boolean> {
+  return ReactNativePrinterKit.requestUsbPermission(params);
+}
+
+/**
+ * Connect to a printer over Bluetooth (default; paired printer's MAC address),
+ * Wi-Fi/LAN (`type: 'NETWORK'`, `address` = IP) or USB (`type: 'USB'` with
+ * `vendorId`/`productId`). The connection survives the app being swiped from
+ * Recents, and is reconnected to automatically the next time the app starts.
+ * Resolves `false` if it could not connect.
  */
 export function connectPrinter(params: ConnectPrinterParams): Promise<boolean> {
   return ReactNativePrinterKit.connectPrinter(params);
@@ -72,6 +114,41 @@ export function getConnectedPrinter(): Promise<BluetoothPrinterDevice | null> {
 }
 
 /**
+ * Whether a printer is connected and currently accepts data. Does not check
+ * paper or cover - use `getPrinterStatus()`.
+ */
+export function isPrinterReady(): Promise<boolean> {
+  return ReactNativePrinterKit.isPrinterReady();
+}
+
+/**
+ * Asks the printer for its state (online / paper out / cover open / error).
+ * Many printers do not answer: then `responded` is `false` and the other fields
+ * are `null` (unknown, not "ok"). Some printers report an open cover as
+ * `paperOut`, so treat `paperOut: true` as "no paper or cover open".
+ */
+export function getPrinterStatus(
+  params: PrinterStatusParams = {}
+): Promise<PrinterStatus> {
+  return ReactNativePrinterKit.getPrinterStatus(params);
+}
+
+/**
+ * Prints a short ASCII test page.
+ */
+export function printTestPage(): Promise<void> {
+  return ReactNativePrinterKit.printTestPage();
+}
+
+/**
+ * Copies a file (e.g. the PDF from `htmlToPdf`) to cache, app storage, public
+ * Downloads/Documents or a chosen folder. Never rejects: check `result.success`.
+ */
+export function saveFile(params: SaveFileParams): Promise<SaveFileResult> {
+  return ReactNativePrinterKit.saveFile(params);
+}
+
+/**
  * Print raw text using the printer's built-in font (ASCII only - use
  * printHtml() for Bangla or other non-Latin scripts).
  */
@@ -90,7 +167,9 @@ export function printImage(params: PrintImageParams): Promise<void> {
 /**
  * Print a base64-encoded image as an ESC/POS raster image.
  */
-export function printImageBase64(params: PrintImageBase64Params): Promise<void> {
+export function printImageBase64(
+  params: PrintImageBase64Params
+): Promise<void> {
   return ReactNativePrinterKit.printImageBase64(params);
 }
 
@@ -138,15 +217,26 @@ export function openFile(params: OpenFileParams): boolean {
 export type {
   BluetoothPrinterDevice,
   ConnectPrinterParams,
+  FileLocation,
+  GetBondedPrintersParams,
   HtmlToPdfParams,
   OpenFileParams,
   PdfToImageParams,
+  PrinterConfidence,
+  PrinterConnectionType,
+  PrinterFilter,
   PrinterImageType,
+  PrinterStatus,
+  PrinterStatusParams,
   PrintHtmlParams,
   PrintImageBase64Params,
   PrintImageParams,
   PrintPdfParams,
   PrintTextParams,
+  SaveFileParams,
+  SaveFileResult,
+  UsbDeviceParams,
+  UsbPrinterDevice,
 };
 
 // Export native module

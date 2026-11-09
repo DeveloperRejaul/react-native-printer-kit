@@ -1,14 +1,105 @@
 import { TurboModuleRegistry, type TurboModule, Platform } from 'react-native';
 
+/** How sure the library is that a paired Bluetooth device is a printer. */
+export type PrinterConfidence = 'CONFIDENT' | 'LIKELY' | 'UNKNOWN';
+
+/** `ALL` lists every paired device, `LIKELY_PRINTERS` hides non-printers, `STRICT` keeps only certain ones. */
+export type PrinterFilter = 'ALL' | 'LIKELY_PRINTERS' | 'STRICT';
+
+export type PrinterConnectionType = 'BLUETOOTH' | 'NETWORK' | 'USB';
+
 export type BluetoothPrinterDevice = {
+  /** `null` for a Wi-Fi/LAN printer. */
   name: string | null;
+  /** Bluetooth MAC, the host for a Wi-Fi/LAN printer, or `"vendorId:productId"` for a USB printer. */
   address: string;
+  confidence: PrinterConfidence;
+  /** Why it got that confidence, e.g. "Printer-like name + SPP service". May be `null`. */
+  reason: string | null;
+};
+
+export type GetBondedPrintersParams = {
+  filter?: PrinterFilter;
+  /** Extra name fragments to treat as printers, for printers with unusual names. */
+  extraNameKeywords?: string[];
+};
+
+export type UsbPrinterDevice = {
+  name: string | null;
+  vendorId: number;
+  productId: number;
+  deviceName: string;
+};
+
+export type UsbDeviceParams = {
+  vendorId: number;
+  productId: number;
 };
 
 export type PrinterImageType = 'PNG' | 'JPEG';
 
 export type ConnectPrinterParams = {
+  /** Bluetooth MAC address, or the IP/host for `NETWORK`. Ignored (use `""`) for `USB`. */
   address: string;
+  /** Default `BLUETOOTH`. */
+  type?: PrinterConnectionType;
+  /** `NETWORK` only. Default 9100. */
+  port?: number;
+  /** `NETWORK` connect timeout in ms. Default 5000. */
+  timeoutMs?: number;
+  /** `USB` only, from `getUsbPrinters()`. */
+  vendorId?: number;
+  /** `USB` only, from `getUsbPrinters()`. */
+  productId?: number;
+  /** Title of the ongoing "connected" notification. Default "Printer connected". */
+  notificationTitle?: string;
+  /** Title of the notification shown if the printer drops later. Default "Printer disconnected". */
+  disconnectedNotificationTitle?: string;
+};
+
+export type PrinterStatusParams = {
+  /** How long to wait for the printer to answer, in ms. Default 800. */
+  timeoutMs?: number;
+};
+
+/**
+ * `null` means "unknown" - the printer did not answer or does not report that condition. It is NOT "ok".
+ */
+export type PrinterStatus = {
+  connected: boolean;
+  /** `false` means the printer ignored the status request and every field below is `null`. */
+  responded: boolean;
+  online: boolean | null;
+  paperOut: boolean | null;
+  paperNearEnd: boolean | null;
+  coverOpen: boolean | null;
+  hasError: boolean | null;
+};
+
+export type FileLocation =
+  'CACHE' | 'APP_FILES' | 'DOWNLOADS' | 'DOCUMENTS' | 'CUSTOM_FOLDER';
+
+export type SaveFileParams = {
+  sourcePath: string;
+  /** Defaults to the source file's name. */
+  fileName?: string;
+  /** Default `DOWNLOADS`. */
+  location?: FileLocation;
+  /** Required for `CUSTOM_FOLDER`: a `content://` tree Uri string or a directory path. */
+  customFolder?: string;
+  subFolder?: string;
+  /** Guessed from the file extension when not given. */
+  mimeType?: string;
+  overwrite?: boolean;
+  deleteSource?: boolean;
+};
+
+export type SaveFileResult = {
+  success: boolean;
+  path: string | null;
+  uri: string | null;
+  fileName: string | null;
+  error: string | null;
 };
 
 export type PrintTextParams = {
@@ -100,16 +191,35 @@ export interface Spec extends TurboModule {
   requestBluetoothPermission(): Promise<boolean>;
 
   /**
-   * Returns all Bluetooth devices already paired (bonded) with this device.
+   * Returns the Bluetooth devices already paired (bonded) with this device, best printer matches first.
    * On Android 12+ this requires the BLUETOOTH_CONNECT permission to be granted.
+   * Pass `{}` for every paired device, or `{ filter: 'LIKELY_PRINTERS' }` to hide non-printers.
    */
-  getBondedBluetoothPrinters(): BluetoothPrinterDevice[];
+  getBondedBluetoothPrinters(
+    params: GetBondedPrintersParams
+  ): BluetoothPrinterDevice[];
 
   /**
-   * Opens a Bluetooth SPP connection to the paired printer at the given address.
-   * Closes any existing printer connection first. Remembers the address so the
+   * USB printers currently plugged in (USB printer class). Needs a phone with USB host (OTG).
+   */
+  getUsbPrinters(): UsbPrinterDevice[];
+
+  /**
+   * Whether the user already granted this app access to that USB printer.
+   */
+  hasUsbPermission(params: UsbDeviceParams): boolean;
+
+  /**
+   * Shows the system USB permission dialog and resolves with the user's answer.
+   * Call this before `connectPrinter` with `type: 'USB'`. The grant is lost when the app is reinstalled.
+   */
+  requestUsbPermission(params: UsbDeviceParams): Promise<boolean>;
+
+  /**
+   * Connects over Bluetooth (default), Wi-Fi/LAN or USB depending on `params.type`.
+   * Closes any existing printer connection first. Remembers the printer so the
    * app reconnects automatically next time it's opened (see the README's
-   * "Persistent connection" section).
+   * "Persistent connection" section). Resolves `false` (does not reject) if it could not connect.
    */
   connectPrinter(params: ConnectPrinterParams): Promise<boolean>;
 
@@ -127,6 +237,29 @@ export interface Spec extends TurboModule {
    * Get the currently connected printer, if any.
    */
   getConnectedPrinter(): Promise<BluetoothPrinterDevice | null>;
+
+  /**
+   * Whether a printer is connected AND currently accepts data (it may be switched off or out of range).
+   * Does not check paper or the cover - use `getPrinterStatus` for that.
+   */
+  isPrinterReady(): Promise<boolean>;
+
+  /**
+   * Asks the printer for its state (online, paper, cover, error). Many cheap printers do not answer:
+   * then `responded` is `false` and every other field is `null` (unknown, NOT ok).
+   */
+  getPrinterStatus(params: PrinterStatusParams): Promise<PrinterStatus>;
+
+  /**
+   * Prints a short ASCII test page (connection type, printer, address, time).
+   */
+  printTestPage(): Promise<void>;
+
+  /**
+   * Copies a finished file (e.g. the PDF from `htmlToPdf`) to cache, app storage, public
+   * Downloads/Documents or a chosen folder. Never rejects: check `result.success`.
+   */
+  saveFile(params: SaveFileParams): Promise<SaveFileResult>;
 
   /**
    * Print raw text using the printer's built-in font. ASCII only - not
