@@ -1,15 +1,10 @@
 import ReactNativePrinterKit, {
   type BluetoothPrinterDevice,
   type ConnectPrinterParams,
-  type FileLocation,
   type GetBondedPrintersParams,
   type HtmlToPdfParams,
   type OpenFileParams,
   type PdfToImageParams,
-  type PrinterConfidence,
-  type PrinterConnectionType,
-  type PrinterFilter,
-  type PrinterImageType,
   type PrinterStatus,
   type PrinterStatusParams,
   type PrintHtmlParams,
@@ -213,19 +208,23 @@ export function openFile(params: OpenFileParams): boolean {
   return ReactNativePrinterKit.openFile(params);
 }
 
-// Export types
-export type {
-  BluetoothPrinterDevice,
-  ConnectPrinterParams,
+// Export enum-like constants (usable at runtime, and as types of the same name)
+export {
   FileLocation,
-  GetBondedPrintersParams,
-  HtmlToPdfParams,
-  OpenFileParams,
-  PdfToImageParams,
   PrinterConfidence,
   PrinterConnectionType,
   PrinterFilter,
   PrinterImageType,
+} from './enums';
+
+// Export types
+export type {
+  BluetoothPrinterDevice,
+  ConnectPrinterParams,
+  GetBondedPrintersParams,
+  HtmlToPdfParams,
+  OpenFileParams,
+  PdfToImageParams,
   PrinterStatus,
   PrinterStatusParams,
   PrintHtmlParams,

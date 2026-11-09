@@ -16,14 +16,19 @@ import {
   getConnectedPrinter,
   getPrinterStatus,
   getUsbPrinters,
+  htmlToPdf,
   hasBluetoothPermission,
   isConnectedPrinter,
+  FileLocation,
   isPrinterReady,
+  PrinterConnectionType,
+  PrinterFilter,
   printHtml,
   printTestPage,
   printText,
   requestBluetoothPermission,
   requestUsbPermission,
+  saveFile,
   type BluetoothPrinterDevice,
 } from '@rejaul/react-native-printer-kit';
 
@@ -120,7 +125,9 @@ export default function App() {
         if (!granted) throw new Error('Bluetooth permission denied');
       }
       // LIKELY_PRINTERS hides headphones, watches and other non-printers.
-      setDevices(getBondedBluetoothPrinters({ filter: 'LIKELY_PRINTERS' }));
+      setDevices(
+        getBondedBluetoothPrinters({ filter: PrinterFilter.LIKELY_PRINTERS })
+      );
       setShowPicker(true);
     });
 
@@ -143,7 +150,7 @@ export default function App() {
       if (!granted) throw new Error('USB permission denied');
       const ok = await connectPrinter({
         address: '',
-        type: 'USB',
+        type: PrinterConnectionType.USB,
         vendorId: usb.vendorId,
         productId: usb.productId,
       });
@@ -162,6 +169,21 @@ export default function App() {
       const result = await getPrinterStatus();
       // null = the printer did not report that field (unknown, not "ok").
       return `getPrinterStatus() = ${JSON.stringify(result)}`;
+    });
+
+  const onSaveFile = () =>
+    run('htmlToPdf + saveFile', async () => {
+      const pdf = await htmlToPdf({ html: SAMPLE_HTML });
+      if (!pdf) throw new Error('htmlToPdf() returned null');
+      const result = await saveFile({
+        sourcePath: pdf,
+        fileName: 'printerkit-test.pdf',
+        location: FileLocation.DOWNLOADS,
+        subFolder: 'PrinterKitRN',
+        overwrite: true,
+      });
+      if (!result.success) throw new Error(result.error ?? 'saveFile failed');
+      return `saveFile() saved: ${result.path ?? result.uri}`;
     });
 
   const onTestPage = () => run('printTestPage()', () => printTestPage());
@@ -237,6 +259,12 @@ export default function App() {
           busy={busy}
           activeLabel={activeLabel}
           onPress={onTestPage}
+        />
+        <ActionButton
+          label="htmlToPdf + saveFile"
+          busy={busy}
+          activeLabel={activeLabel}
+          onPress={onSaveFile}
         />
         <ActionButton
           label="disconnectPrinter()"

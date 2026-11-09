@@ -224,6 +224,24 @@ Renders HTML to a PDF file using an off-screen `WebView` and returns its path, o
 #### `printHtml(params: PrintHtmlParams): Promise<boolean>`
 Full pipeline: `htmlToPdf` → `printPdf`. This is how you print Bangla (or other non-Latin) text or any real HTML/CSS layout. Retries once (reconnect + resend) if the underlying write fails, e.g. from a "Broken pipe" when a cheap board drops the link mid-print.
 
+## Enums
+
+The string options are also exported as constants, so you can write `PrinterFilter.LIKELY_PRINTERS` instead of a bare string (plain strings keep working too). Each name is both a runtime value and a type:
+
+```typescript
+import {
+  PrinterFilter, // ALL | LIKELY_PRINTERS | STRICT
+  PrinterConfidence, // CONFIDENT | LIKELY | UNKNOWN
+  PrinterConnectionType, // BLUETOOTH | NETWORK | USB
+  PrinterImageType, // PNG | JPEG
+  FileLocation, // CACHE | APP_FILES | DOWNLOADS | DOCUMENTS | CUSTOM_FOLDER
+} from '@rejaul/react-native-printer-kit';
+
+getBondedBluetoothPrinters({ filter: PrinterFilter.LIKELY_PRINTERS });
+connectPrinter({ address: '192.168.1.50', type: PrinterConnectionType.NETWORK });
+saveFile({ sourcePath, location: FileLocation.DOWNLOADS });
+```
+
 ## Type Definitions
 
 ```typescript
