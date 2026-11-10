@@ -20,8 +20,10 @@ import {
   htmlToPdf,
   hasBluetoothPermission,
   isConnectedPrinter,
+  File,
   FileLocation,
   isPrinterReady,
+  openFile,
   PrinterConnectionType,
   PrinterFilter,
   printHtml,
@@ -188,6 +190,75 @@ export default function App() {
       });
       if (!result.success) throw new Error(result.error ?? 'saveFile failed');
       return `saveFile() saved: ${result.path ?? result.uri}`;
+    });
+
+  const onDirectoryPaths = () =>
+    run('File (directory paths)', async () => {
+      const writable: Array<[string, string | null]> = [
+        ['CACHE', File.CACHE],
+        ['APP_FILES', File.APP_FILES],
+        ['EXTERNAL_FILES', File.EXTERNAL_FILES],
+        ['EXTERNAL_CACHE', File.EXTERNAL_CACHE],
+      ];
+      for (const [key, value] of writable) {
+        if (key !== 'EXTERNAL_FILES' && key !== 'EXTERNAL_CACHE' && !value) {
+          throw new Error(`File.${key} is empty`);
+        }
+      }
+      const referenceOnly: Array<[string, string]> = [
+        ['DOWNLOADS', File.DOWNLOADS],
+        ['DOCUMENTS', File.DOCUMENTS],
+        ['PICTURES', File.PICTURES],
+      ];
+      for (const [key, value] of referenceOnly) {
+        if (!value) throw new Error(`File.${key} is empty`);
+      }
+      return `CACHE=${File.CACHE}\nAPP_FILES=${File.APP_FILES}\nDOWNLOADS=${File.DOWNLOADS}`;
+    });
+
+  const onSaveToDownloadsThenOpen = () =>
+    run('saveFile(DOWNLOADS) -> openFile', async () => {
+      // Exactly the real-world flow: write with a writable outputPath (App.FILES, not DOWNLOADS -
+      // that one is not a raw-writable path on Android 10+), copy into Downloads with saveFile,
+      // then open what saveFile gave back (a content:// Uri on Android 10+, since DOWNLOADS never
+      // gets a raw path there).
+      const tempPath = await htmlToPdf({
+        html: SAMPLE_HTML,
+        outputPath: `${File.APP_FILES}/printerkit-open-test.pdf`,
+      });
+      if (!tempPath) throw new Error('htmlToPdf() returned null');
+
+      const result = await saveFile({
+        sourcePath: tempPath,
+        fileName: 'printerkit-open-test.pdf',
+        location: FileLocation.DOWNLOADS,
+        overwrite: true,
+        deleteSource: true,
+      });
+      if (!result.success) throw new Error(result.error ?? 'saveFile failed');
+
+      const target = result.path ?? result.uri;
+      if (!target) throw new Error('saveFile() gave neither path nor uri');
+
+      const opened = openFile({ path: target, mimeType: 'application/pdf' });
+      if (!opened) throw new Error(`openFile(${target}) returned false`);
+      return `openFile() opened: ${target}`;
+    });
+
+  const onDirectDownloadsNoSaveFile = () =>
+    run('htmlToPdf(outputPath=DOWNLOADS) -> openFile', async () => {
+      // No saveFile() call here - outputPath points straight at File.DOWNLOADS. htmlToPdf()
+      // itself now detects a public-folder outputPath and routes it through MediaStore,
+      // handing back the real, already-saved location (a content:// Uri on Android 10+).
+      const path = await htmlToPdf({
+        html: SAMPLE_HTML,
+        outputPath: `${File.DOWNLOADS}/printerkit-direct-downloads-test.pdf`,
+      });
+      if (!path) throw new Error('htmlToPdf() returned null');
+
+      const opened = openFile({ path, mimeType: 'application/pdf' });
+      if (!opened) throw new Error(`openFile(${path}) returned false`);
+      return `openFile() opened: ${path}`;
     });
 
   const onCustomPath = () =>
@@ -419,6 +490,24 @@ export default function App() {
           busy={busy}
           activeLabel={activeLabel}
           onPress={onSaveFile}
+        />
+        <ActionButton
+          label="File (directory paths)"
+          busy={busy}
+          activeLabel={activeLabel}
+          onPress={onDirectoryPaths}
+        />
+        <ActionButton
+          label="saveFile(DOWNLOADS) -> openFile"
+          busy={busy}
+          activeLabel={activeLabel}
+          onPress={onSaveToDownloadsThenOpen}
+        />
+        <ActionButton
+          label="htmlToPdf(outputPath=DOWNLOADS) -> openFile"
+          busy={busy}
+          activeLabel={activeLabel}
+          onPress={onDirectDownloadsNoSaveFile}
         />
         <ActionButton
           label="disconnectPrinter()"

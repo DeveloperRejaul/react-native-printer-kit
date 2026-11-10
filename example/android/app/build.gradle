@@ -2,6 +2,16 @@ apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
 
+// Needed here, not just in react-native-printer-kit/android/build.gradle: Gradle resolves a
+// project's transitive external dependencies (like android-printer-kit) using the repositories
+// declared on the project whose configuration is being resolved - i.e. this app - not the
+// library project that declared the dependency.
+repositories {
+    google()
+    mavenCentral()
+    maven { url = uri("https://jitpack.io") }
+}
+
 /**
  * This is the configuration block to customize your React Native Android app.
  * By default you don't need to apply any configuration, just uncomment the lines you need.

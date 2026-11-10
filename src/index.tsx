@@ -1,6 +1,8 @@
+import { Platform } from 'react-native';
 import ReactNativePrinterKit, {
   type BluetoothPrinterDevice,
   type ConnectPrinterParams,
+  type DirectoryPaths,
   type DirEntry,
   type HtmlToImageParams,
   type GetBondedPrintersParams,
@@ -256,6 +258,27 @@ export function openFile(params: OpenFileParams): boolean {
   return ReactNativePrinterKit.openFile(params);
 }
 
+/**
+ * Real, absolute paths for common storage locations on this device - computed once at startup,
+ * so `File.APP_FILES`/`File.CACHE` etc. are plain string properties, similar to react-native-fs's
+ * `RNFS.DocumentDirectoryPath`. See {@link DirectoryPaths} for which keys are safely writable with
+ * a raw path (`CACHE`, `APP_FILES`, `EXTERNAL_FILES`, `EXTERNAL_CACHE`) and which are reference-only
+ * because Android 10+ blocks writing a public folder with a raw path (`DOWNLOADS`, `DOCUMENTS`,
+ * `PICTURES` - use `saveFile` for those instead).
+ */
+export const File: DirectoryPaths =
+  Platform.OS === 'android'
+    ? ReactNativePrinterKit.getDirectoryPaths()
+    : {
+        CACHE: '',
+        APP_FILES: '',
+        EXTERNAL_FILES: null,
+        EXTERNAL_CACHE: null,
+        DOWNLOADS: '',
+        DOCUMENTS: '',
+        PICTURES: '',
+      };
+
 // Export enum-like constants (usable at runtime, and as types of the same name)
 export {
   FileLocation,
@@ -270,6 +293,7 @@ export {
 export type {
   BluetoothPrinterDevice,
   ConnectPrinterParams,
+  DirectoryPaths,
   DirEntry,
   GetBondedPrintersParams,
   HtmlToImageParams,

@@ -629,6 +629,9 @@ class ReactNativePrinterKitModule(reactContext: ReactApplicationContext) :
     return standalonePrinter.openFile(path, params.getString("mimeType"))
   }
 
+  override fun getDirectoryPaths(): WritableMap =
+    Arguments.makeNativeMap(standalonePrinter.getDirectoryPaths().toMap())
+
   companion object {
     const val NAME = NativeReactNativePrinterKitSpec.NAME
     private const val PERMISSION_REQUEST_CODE = 4201

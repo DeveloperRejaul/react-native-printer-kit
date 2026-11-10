@@ -283,6 +283,37 @@ export type OpenFileParams = {
   mimeType?: string;
 };
 
+/**
+ * Real, absolute directory paths on this device - similar to react-native-fs's
+ * `DocumentDirectoryPath`/`CachesDirectoryPath` constants.
+ *
+ * `CACHE`, `APP_FILES`, `EXTERNAL_FILES` and `EXTERNAL_CACHE` are app-private: a plain file path
+ * into any of them is always writable, no permission needed, on every Android version - safe to
+ * use directly as `htmlToPdf`'s/`htmlToImage`'s `outputPath`.
+ *
+ * `DOWNLOADS`, `DOCUMENTS` and `PICTURES` are the public folders' paths. A plain `File`/`outputPath`
+ * write there still fails directly on Android 10+ (scoped storage) - but `htmlToPdf`'s `outputPath`
+ * detects one of these and routes the write through MediaStore automatically, so
+ * `htmlToPdf({ outputPath: \`${File.DOWNLOADS}/name.pdf\` })` works as a single call. For any other
+ * file, write it to `CACHE`/`APP_FILES` first, then call `saveFile` with the matching `location`.
+ */
+export type DirectoryPaths = {
+  /** `context.cacheDir`. Temporary - the system may delete it. */
+  CACHE: string;
+  /** `context.filesDir`. App-private persistent storage. */
+  APP_FILES: string;
+  /** App-private persistent storage on external/SD storage (`getExternalFilesDir(null)`). `null` if no external storage is mounted. */
+  EXTERNAL_FILES: string | null;
+  /** App-private cache on external/SD storage (`getExternalCacheDir()`). `null` if no external storage is mounted. */
+  EXTERNAL_CACHE: string | null;
+  /** Public Downloads folder - reference only, see above. */
+  DOWNLOADS: string;
+  /** Public Documents folder - reference only, see above. */
+  DOCUMENTS: string;
+  /** Public Pictures folder - reference only, see above. */
+  PICTURES: string;
+};
+
 export interface Spec extends TurboModule {
   /**
    * Whether the device's Bluetooth adapter itself is turned on. Needs no runtime
@@ -458,6 +489,12 @@ export interface Spec extends TurboModule {
    * not given. Returns false if the file doesn't exist or no app can open it.
    */
   openFile(params: OpenFileParams): boolean;
+
+  /**
+   * Real, absolute paths for common storage locations on this device. See {@link DirectoryPaths}
+   * for which keys are safely writable with a raw path and which are reference-only.
+   */
+  getDirectoryPaths(): DirectoryPaths;
 }
 
 function getModule(): Spec {
