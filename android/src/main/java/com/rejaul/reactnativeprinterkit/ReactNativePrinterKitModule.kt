@@ -30,6 +30,12 @@ import com.rezaul.printerkit.model.PrintTextParams
 import com.rezaul.printerkit.model.PrinterConnectionType
 import com.rezaul.printerkit.model.PrinterFilter
 import com.rezaul.printerkit.model.PrinterImageType
+import com.rezaul.printerkit.model.HtmlToImageParams
+import com.rezaul.printerkit.model.ReadDirParams
+import com.rezaul.printerkit.model.ReadFileFormat
+import com.rezaul.printerkit.model.ReadFileParams
+import com.rezaul.printerkit.model.ReadFileResult
+import com.rezaul.printerkit.model.RemoveFileParams
 import com.rezaul.printerkit.model.SaveFileParams
 import com.rezaul.printerkit.model.UsbPrinterDevice
 import java.util.concurrent.Executors
@@ -336,16 +342,15 @@ class ReactNativePrinterKitModule(reactContext: ReactApplicationContext) :
   }
 
   override fun saveFile(params: ReadableMap, promise: Promise) {
-    val sourcePath = params.getString("sourcePath")
-    if (sourcePath == null) {
-      promise.reject("ERROR", "sourcePath is required")
-      return
-    }
+    // Exactly one of sourcePath / text / base64 is validated by the native library, which
+    // answers with result.success = false and a message, so nothing to reject here.
     executor.execute {
       try {
         val result = standalonePrinter.saveFile(
           SaveFileParams(
-            sourcePath = sourcePath,
+            sourcePath = params.optString("sourcePath"),
+            text = params.optString("text"),
+            base64 = params.optString("base64"),
             fileName = params.optString("fileName"),
             location = enumOrDefault(params.optString("location"), FileLocation.DOWNLOADS),
             customFolder = params.optString("customFolder"),
@@ -355,6 +360,92 @@ class ReactNativePrinterKitModule(reactContext: ReactApplicationContext) :
             deleteSource = params.optBoolean("deleteSource", false)
           )
         )
+        promise.resolve(Arguments.makeNativeMap(result.toMap()))
+      } catch (e: Exception) {
+        promise.reject("ERROR", e.message)
+      }
+    }
+  }
+
+  override fun readFile(params: ReadableMap, promise: Promise) {
+    val path = params.getString("path")
+    if (path == null) {
+      promise.reject("ERROR", "path is required")
+      return
+    }
+    val formatName = params.optString("format")
+    val format = if (formatName == null) ReadFileFormat.BASE64 else ReadFileFormat.fromWireName(formatName)
+    if (format == null) {
+      // Same "never rejects" contract as the other file functions: a bad format is a failed result.
+      val failed = ReadFileResult(false, error = "Unknown format: $formatName (use base64, dataUri, text, hex or bytes)")
+      promise.resolve(Arguments.makeNativeMap(failed.toMap()))
+      return
+    }
+    executor.execute {
+      try {
+        val result = standalonePrinter.readFile(
+          ReadFileParams(
+            path = path,
+            format = format,
+            encoding = params.optString("encoding"),
+            maxBytes = params.optLong("maxBytes", ReadFileParams.DEFAULT_MAX_BYTES)
+          )
+        )
+        promise.resolve(Arguments.makeNativeMap(result.toMap()))
+      } catch (e: Exception) {
+        promise.reject("ERROR", e.message)
+      }
+    }
+  }
+
+  override fun htmlToImage(params: ReadableMap, promise: Promise) {
+    val html = params.getString("html")
+    if (html == null) {
+      promise.reject("ERROR", "html is required")
+      return
+    }
+    // htmlToImage hops to the main thread for the WebView and does the rendering on its own
+    // background thread, so it can be called straight from here.
+    standalonePrinter.htmlToImage(
+      HtmlToImageParams(
+        html = html,
+        outputPath = params.optString("outputPath"),
+        imageType = if (params.getString("imageType") == "JPEG") PrinterImageType.JPEG else PrinterImageType.PNG,
+        targetWidthPx = params.optIntOrNull("targetWidthPx"),
+        pageWidthDp = params.optInt("pageWidthDp", 412),
+        heightDp = params.optIntOrNull("heightDp"),
+        minPageHeightDp = params.optInt("minPageHeightDp", 1000)
+      )
+    ) { path ->
+      promise.resolve(path)
+    }
+  }
+
+  override fun readDir(params: ReadableMap, promise: Promise) {
+    val path = params.getString("path")
+    if (path == null) {
+      promise.reject("ERROR", "path is required")
+      return
+    }
+    executor.execute {
+      try {
+        val result = standalonePrinter.readDir(ReadDirParams(path))
+        promise.resolve(Arguments.makeNativeMap(result.toMap()))
+      } catch (e: Exception) {
+        promise.reject("ERROR", e.message)
+      }
+    }
+  }
+
+  override fun removeFile(params: ReadableMap, promise: Promise) {
+    val path = params.getString("path")
+    if (path == null) {
+      promise.reject("ERROR", "path is required")
+      return
+    }
+    executor.execute {
+      try {
+        val result = standalonePrinter.removeFile(RemoveFileParams(path))
         promise.resolve(Arguments.makeNativeMap(result.toMap()))
       } catch (e: Exception) {
         promise.reject("ERROR", e.message)
@@ -499,6 +590,7 @@ class ReactNativePrinterKitModule(reactContext: ReactApplicationContext) :
       service.printer.htmlToPdf(
         HtmlToPdfParams(
           html = html,
+          outputPath = params.optString("outputPath"),
           pageWidthDp = params.optInt("pageWidthDp", 412),
           heightDp = params.optIntOrNull("heightDp"),
           minPageHeightDp = params.optInt("minPageHeightDp", 1000)

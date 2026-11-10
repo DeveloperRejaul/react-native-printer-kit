@@ -191,7 +191,63 @@ Prints a short ASCII test page (connection type, printer, address, time).
 ### Saving and opening files
 
 #### `saveFile(params: SaveFileParams): Promise<SaveFileResult>`
-Copies a finished file (for example the PDF from `htmlToPdf`) to `CACHE`, `APP_FILES`, public `DOWNLOADS` / `DOCUMENTS` or a `CUSTOM_FOLDER`. Never rejects: check `result.success` and `result.error`. On Android 10+ Downloads/Documents use MediaStore (no permission needed); on Android 9 and below you need `WRITE_EXTERNAL_STORAGE`. `overwrite: true` can only replace files this app created.
+Saves a file to `CACHE`, `APP_FILES`, public `DOWNLOADS` / `DOCUMENTS`, the public `PICTURES` folder (shows in the Gallery; images only) or a `CUSTOM_FOLDER`. Either copy an existing file with `sourcePath` (for example the PDF from `htmlToPdf`), or **pass the content directly**: `text` (UTF-8 string) or `base64` (bytes, for images/PDFs; a `data:...;base64,` prefix is fine). Give exactly one of the three; with `text` / `base64` a `fileName` is required. Never rejects: check `result.success` and `result.error`.
+
+```typescript
+await saveFile({ text: csv, fileName: 'report.csv', subFolder: 'MyApp' });
+await saveFile({ base64: pngBase64, fileName: 'qr.png', location: FileLocation.DOCUMENTS });
+``` On Android 10+ Downloads/Documents use MediaStore (no permission needed); on Android 9 and below you need `WRITE_EXTERNAL_STORAGE`. `overwrite: true` can only replace files this app created.
+
+#### `readFile(params: ReadFileParams): Promise<ReadFileResult>`
+Reads **one** file and returns its content in the shape `format` asks for. `path` is an absolute path, or the `content://` Uri that `saveFile` returned.
+
+| `format` | `result` holds |
+|---|---|
+| `'base64'` (default) | `content`: plain base64, for images, PDFs and any binary file |
+| `'dataUri'` | `content`: `data:<type>;base64,...` (type from the file extension), ready for an `<Image>`/`<img>` or an upload |
+| `'text'` | `content`: the file decoded as text (UTF-8, or `encoding: 'UTF-16'`, `'ISO-8859-1'`, ...). Only meaningful for text files |
+| `'hex'` | `content`: lower-case hex, two digits per byte |
+| `'bytes'` | `bytes`: array of numbers 0–255. Heavy, so **capped at 1 MB** |
+
+Also returned: `sizeBytes` and `mimeType`. The whole file is loaded into memory, so a file over `maxBytes` (default **10 MB**) is refused with a clear message instead. Never rejects: check `result.success` and `result.error`. For JSON, read it as `'text'` and `JSON.parse` it.
+
+```typescript
+const r = await readFile({ path: imagePath, format: 'base64' });
+if (r.success) await upload(r.content!); // "iVBORw0KGgo..."
+
+const pdf = await readFile({ path: pdfPath, format: 'dataUri' });
+// pdf.content = "data:application/pdf;base64,JVBERi0x..."
+```
+
+#### `htmlToImage(params: HtmlToImageParams): Promise<string | null>`
+Renders HTML to **one** image file and returns its path, or `null` on failure. It is `htmlToPdf` plus one rendered page: `imageType` is `'PNG'` (default) or `'JPEG'`, `targetWidthPx` is the image width (default: twice the page width), `outputPath` chooses the full file path (folder must exist), and `pageWidthDp` / `heightDp` / `minPageHeightDp` work as in `htmlToPdf`. A **very tall page makes a very large bitmap and can run out of memory**, in which case you get `null`. For base64, pass the returned path to `readFile`.
+
+```typescript
+const png = await htmlToImage({ html: receiptHtml, targetWidthPx: 800 });
+if (png) {
+  const b64 = await readFile({ path: png, format: 'base64' }); // send to your server
+  await saveFile({ sourcePath: png, fileName: 'receipt.png', location: FileLocation.PICTURES }); // Gallery
+}
+```
+
+#### `readDir(params: ReadDirParams): Promise<ReadDirResult>`
+Reads **one** folder: the files and folders directly inside it, **folders first, then A–Z**. `path` is an absolute folder path, or the `content://` Uri of a folder the user picked with the system folder picker. `result.names` is just the names; `result.entries` has `name`, `path`, `isDirectory`, `sizeBytes` (`null` for a folder) and `lastModified`. It does not go into sub-folders: call it again with an entry's `path` to go deeper, and an entry's `path` also works with `removeFile`. A path that is a file, is missing or is relative is refused. Android 10+ restricts reading public folders such as Downloads, so for those the result may say the folder cannot be read; the app's own folders and a folder picked with the system folder picker always work. Never rejects: check `result.success` and `result.error`.
+
+```typescript
+const dir = await readDir({ path: '/data/user/0/<your.app>/files' });
+if (dir.success) {
+  console.log(dir.names); // ['reports', 'logo.png', 'notes.txt']
+  const folders = dir.entries.filter((e) => e.isDirectory);
+}
+```
+
+#### `removeFile(params: RemoveFileParams): Promise<RemoveFileResult>`
+Deletes **one** file: an absolute `path`, or the `content://` Uri that `saveFile` returned. It never deletes a folder, never expands a pattern, refuses a relative path, and **cannot be undone**. A missing file is reported as a failure (`"File not found"`), which you can ignore if you only wanted it gone. On Android 10+ a file in Downloads/Documents (a MediaStore Uri) can only be deleted if your app created it. Never rejects: check `result.success` and `result.error`.
+
+```typescript
+const saved = await saveFile({ text: 'temp', fileName: 'tmp.txt' });
+if (saved.success) await removeFile({ path: saved.path ?? saved.uri! });
+```
 
 #### `openFile(params: OpenFileParams): boolean`
 Opens a file with whatever installed app can handle its type (shows the "Open with" chooser if several match). Returns `false` if the file does not exist or no app can open it.
@@ -219,7 +275,7 @@ Renders one PDF page to an image file and returns its path.
 `pdfToImage` + print, in one call.
 
 #### `htmlToPdf(params: HtmlToPdfParams): Promise<string | null>`
-Renders HTML to a PDF file using an off-screen `WebView` and returns its path, or `null` on failure. `pageWidthDp` controls how large the content renders (like a CSS viewport width), independent of the final printed width. Leave `heightDp` unset to auto-measure the real content height (recommended).
+Renders HTML to a PDF file using an off-screen `WebView` and returns its path, or `null` on failure. Pass `outputPath` (the full path including the file name, e.g. `/data/user/0/<your.app>/files/invoice.pdf`) to choose where the PDF goes; without it you get a generated name in the app's cache folder. `outputPath` must be in a folder that already exists and that your app can write to (its own files/cache folders), and an existing file is overwritten. To end up in a public folder such as Downloads, convert first and then call [`saveFile`](#savefileparams-savefileparams-promisesavefileresult), which accepts `fileName`, `location` and `subFolder`. `pageWidthDp` controls how large the content renders (like a CSS viewport width), independent of the final printed width. Leave `heightDp` unset to auto-measure the real content height (recommended).
 
 #### `printHtml(params: PrintHtmlParams): Promise<boolean>`
 Full pipeline: `htmlToPdf` → `printPdf`. This is how you print Bangla (or other non-Latin) text or any real HTML/CSS layout. Retries once (reconnect + resend) if the underlying write fails, e.g. from a "Broken pipe" when a cheap board drops the link mid-print.
@@ -234,7 +290,8 @@ import {
   PrinterConfidence, // CONFIDENT | LIKELY | UNKNOWN
   PrinterConnectionType, // BLUETOOTH | NETWORK | USB
   PrinterImageType, // PNG | JPEG
-  FileLocation, // CACHE | APP_FILES | DOWNLOADS | DOCUMENTS | CUSTOM_FOLDER
+  FileLocation, // CACHE | APP_FILES | DOWNLOADS | DOCUMENTS | PICTURES | CUSTOM_FOLDER
+  ReadFileFormat, // base64 | dataUri | text | hex | bytes
 } from '@rejaul/react-native-printer-kit';
 
 getBondedBluetoothPrinters({ filter: PrinterFilter.LIKELY_PRINTERS });
@@ -301,11 +358,14 @@ type FileLocation =
   | 'APP_FILES'
   | 'DOWNLOADS'
   | 'DOCUMENTS'
+  | 'PICTURES' // public Pictures folder: shows in the Gallery. Images only.
   | 'CUSTOM_FOLDER';
 
 type SaveFileParams = {
-  sourcePath: string;
-  fileName?: string; // defaults to the source file's name
+  sourcePath?: string; // an existing file ... OR text / base64 below (exactly one)
+  text?: string; // content as UTF-8 text; needs fileName
+  base64?: string; // content as base64 bytes; needs fileName
+  fileName?: string; // defaults to the source file's name; required with text/base64
   location?: FileLocation; // default 'DOWNLOADS'
   customFolder?: string; // required for CUSTOM_FOLDER
   subFolder?: string;
@@ -315,6 +375,63 @@ type SaveFileParams = {
 };
 
 type SaveFileResult = {
+  success: boolean;
+  path: string | null;
+  uri: string | null;
+  fileName: string | null;
+  error: string | null;
+};
+
+type ReadFileFormat = 'base64' | 'dataUri' | 'text' | 'hex' | 'bytes';
+
+type ReadFileParams = {
+  path: string; // absolute path, or a content:// Uri
+  format?: ReadFileFormat; // default 'base64'
+  encoding?: string; // 'text' only; default 'UTF-8'
+  maxBytes?: number; // default 10 MB; 'bytes' is always capped at 1 MB
+};
+
+type ReadFileResult = {
+  success: boolean;
+  format: ReadFileFormat | null;
+  content: string | null; // base64 / dataUri / text / hex
+  bytes: number[] | null; // bytes
+  sizeBytes: number | null;
+  mimeType: string | null;
+  error: string | null;
+};
+
+type HtmlToImageParams = {
+  html: string;
+  outputPath?: string; // full path incl. file name; default: generated name in the cache folder
+  imageType?: PrinterImageType; // default 'PNG'
+  targetWidthPx?: number; // default: twice the page width
+  pageWidthDp?: number;
+  heightDp?: number;
+  minPageHeightDp?: number;
+};
+
+type ReadDirParams = { path: string }; // absolute folder path, or a folder content:// Uri
+
+type DirEntry = {
+  name: string;
+  path: string; // works with removeFile (a file) or readDir (a folder)
+  isDirectory: boolean;
+  sizeBytes: number | null; // null for a folder
+  lastModified: number | null; // ms since 1970
+};
+
+type ReadDirResult = {
+  success: boolean;
+  path: string | null;
+  names: string[];
+  entries: DirEntry[];
+  error: string | null;
+};
+
+type RemoveFileParams = { path: string }; // absolute path, or a content:// Uri from saveFile
+
+type RemoveFileResult = {
   success: boolean;
   path: string | null;
   uri: string | null;
@@ -360,6 +477,7 @@ type PrintPdfParams = {
 
 type HtmlToPdfParams = {
   html: string;
+  outputPath?: string; // full path incl. file name; default: generated name in the cache folder
   pageWidthDp?: number;
   heightDp?: number;
   minPageHeightDp?: number;

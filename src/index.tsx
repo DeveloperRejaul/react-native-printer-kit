@@ -1,6 +1,8 @@
 import ReactNativePrinterKit, {
   type BluetoothPrinterDevice,
   type ConnectPrinterParams,
+  type DirEntry,
+  type HtmlToImageParams,
   type GetBondedPrintersParams,
   type HtmlToPdfParams,
   type OpenFileParams,
@@ -12,6 +14,12 @@ import ReactNativePrinterKit, {
   type PrintImageParams,
   type PrintPdfParams,
   type PrintTextParams,
+  type ReadDirParams,
+  type ReadDirResult,
+  type ReadFileParams,
+  type ReadFileResult,
+  type RemoveFileParams,
+  type RemoveFileResult,
   type SaveFileParams,
   type SaveFileResult,
   type UsbDeviceParams,
@@ -144,6 +152,46 @@ export function saveFile(params: SaveFileParams): Promise<SaveFileResult> {
 }
 
 /**
+ * Reads ONE file and returns its content in the shape `format` asks for: `base64` (default), `dataUri`
+ * (`data:<type>;base64,...`), `text` (optionally with an `encoding`), `hex` or `bytes` (array of numbers,
+ * max 1 MB). `path` is an absolute path or the `content://` Uri `saveFile` returned. A file over `maxBytes`
+ * (default 10 MB) is refused instead of loaded. Never rejects: check `result.success`.
+ */
+export function readFile(params: ReadFileParams): Promise<ReadFileResult> {
+  return ReactNativePrinterKit.readFile(params);
+}
+
+/**
+ * Renders HTML to ONE image file (PNG, or JPEG with `imageType: 'JPEG'`) and returns its path, or `null`
+ * on failure. Pass `outputPath` to choose the file name. A very tall page can run out of memory (then
+ * `null`). For base64 pass the returned path to `readFile`.
+ */
+export function htmlToImage(params: HtmlToImageParams): Promise<string | null> {
+  return ReactNativePrinterKit.htmlToImage(params);
+}
+
+/**
+ * Reads ONE folder: the files and folders directly inside it, folders first and then A-Z (it does not
+ * go into sub-folders; call it again with an entry's `path` to go deeper). `result.names` is just the
+ * names, `result.entries` has `name`, `path`, `isDirectory`, `sizeBytes` and `lastModified`. A path that
+ * is a file, missing or relative is refused. Never rejects: check `result.success`.
+ */
+export function readDir(params: ReadDirParams): Promise<ReadDirResult> {
+  return ReactNativePrinterKit.readDir(params);
+}
+
+/**
+ * Deletes ONE file: an absolute path, or the `content://` Uri `saveFile` returned. Never a folder or a
+ * pattern; cannot be undone. A missing file is a failure ("File not found"). Never rejects: check
+ * `result.success`.
+ */
+export function removeFile(
+  params: RemoveFileParams
+): Promise<RemoveFileResult> {
+  return ReactNativePrinterKit.removeFile(params);
+}
+
+/**
  * Print raw text using the printer's built-in font (ASCII only - use
  * printHtml() for Bangla or other non-Latin scripts).
  */
@@ -215,13 +263,16 @@ export {
   PrinterConnectionType,
   PrinterFilter,
   PrinterImageType,
+  ReadFileFormat,
 } from './enums';
 
 // Export types
 export type {
   BluetoothPrinterDevice,
   ConnectPrinterParams,
+  DirEntry,
   GetBondedPrintersParams,
+  HtmlToImageParams,
   HtmlToPdfParams,
   OpenFileParams,
   PdfToImageParams,
@@ -232,6 +283,12 @@ export type {
   PrintImageParams,
   PrintPdfParams,
   PrintTextParams,
+  ReadDirParams,
+  ReadDirResult,
+  ReadFileParams,
+  ReadFileResult,
+  RemoveFileParams,
+  RemoveFileResult,
   SaveFileParams,
   SaveFileResult,
   UsbDeviceParams,

@@ -16,6 +16,7 @@ import {
   getConnectedPrinter,
   getPrinterStatus,
   getUsbPrinters,
+  htmlToImage,
   htmlToPdf,
   hasBluetoothPermission,
   isConnectedPrinter,
@@ -27,6 +28,9 @@ import {
   printTestPage,
   printText,
   requestBluetoothPermission,
+  readDir,
+  readFile,
+  removeFile,
   requestUsbPermission,
   saveFile,
   type BluetoothPrinterDevice,
@@ -186,6 +190,132 @@ export default function App() {
       return `saveFile() saved: ${result.path ?? result.uri}`;
     });
 
+  const onCustomPath = () =>
+    run('htmlToPdf(outputPath)', async () => {
+      // A first conversion without outputPath tells us a folder the app may write to.
+      const generated = await htmlToPdf({ html: SAMPLE_HTML });
+      if (!generated) throw new Error('htmlToPdf() returned null');
+      const wanted = `${generated.substring(0, generated.lastIndexOf('/'))}/my-invoice.pdf`;
+      const written = await htmlToPdf({
+        html: SAMPLE_HTML,
+        outputPath: wanted,
+      });
+      if (written !== wanted) {
+        throw new Error(`asked for ${wanted}, got ${String(written)}`);
+      }
+      return `htmlToPdf() wrote exactly: ${written}`;
+    });
+
+  const onSaveRemove = () =>
+    run('saveFile(text) -> removeFile', async () => {
+      const saved = await saveFile({
+        text: 'নমুনা লেখা\nsecond line',
+        fileName: 'rn-content.txt',
+        subFolder: 'PrinterKitRN',
+        overwrite: true,
+      });
+      if (!saved.success) throw new Error(`save: ${saved.error}`);
+      const target = saved.path ?? saved.uri;
+      if (!target) throw new Error('saveFile() gave neither path nor uri');
+      const removed = await removeFile({ path: target });
+      if (!removed.success) throw new Error(`remove: ${removed.error}`);
+      // The file must be gone now, so a second removal has to fail.
+      const again = await removeFile({ path: target });
+      if (again.success)
+        throw new Error('file was still there after removeFile');
+      return `saved then removed ${target}; second removal refused: ${again.error}`;
+    });
+
+  const onReadDir = () =>
+    run('readDir(path)', async () => {
+      const where = { location: FileLocation.APP_FILES, overwrite: true };
+      const a = await saveFile({
+        text: 'a',
+        fileName: 'A.txt',
+        subFolder: 'readdir-test',
+        ...where,
+      });
+      await saveFile({
+        text: 'bb',
+        fileName: 'b.txt',
+        subFolder: 'readdir-test',
+        ...where,
+      });
+      const x = await saveFile({
+        text: 'x',
+        fileName: 'x.txt',
+        subFolder: 'readdir-test/inner',
+        ...where,
+      });
+      if (!a.success || !a.path || !x.success || !x.path)
+        throw new Error('setup failed');
+      const folder = a.path.substring(0, a.path.lastIndexOf('/'));
+      try {
+        const top = await readDir({ path: folder });
+        if (!top.success) throw new Error(`readDir: ${top.error}`);
+        // Folders first, then files, each A-Z.
+        if (top.names.join() !== 'inner,A.txt,b.txt') {
+          throw new Error(`wrong names/order: ${top.names.join()}`);
+        }
+        const file = top.entries.find((e) => e.name === 'A.txt');
+        if (file?.isDirectory !== false || file.sizeBytes !== 1) {
+          throw new Error(`bad entry for A.txt: ${JSON.stringify(file)}`);
+        }
+        // An entry's path goes straight back into readDir to open the sub-folder.
+        const inner = top.entries.find((e) => e.isDirectory);
+        const sub = await readDir({ path: inner?.path ?? '' });
+        if (sub.names.join() !== 'x.txt')
+          throw new Error(`inner: ${sub.names.join()}`);
+        const onFile = await readDir({ path: a.path });
+        if (onFile.success) throw new Error('a file path should be refused');
+        return `readDir() -> [${top.names.join(', ')}], inner -> [${sub.names.join(', ')}]`;
+      } finally {
+        for (const p of [a.path, `${folder}/b.txt`, x.path])
+          await removeFile({ path: p });
+      }
+    });
+
+  const onHtmlToImage = () =>
+    run('htmlToImage -> readFile', async () => {
+      const png = await htmlToImage({ html: SAMPLE_HTML, targetWidthPx: 600 });
+      if (!png) throw new Error('htmlToImage() returned null');
+      // The PNG signature (89 50 4E 47 0D 0A 1A 0A) proves it is a real PNG, not just a file with a name.
+      const hex = await readFile({
+        path: png,
+        format: 'hex',
+        maxBytes: 50_000_000,
+      });
+      if (!hex.success || !hex.content?.startsWith('89504e470d0a1a0a')) {
+        throw new Error(`not a PNG: ${hex.error ?? hex.content?.slice(0, 16)}`);
+      }
+      const b64 = await readFile({
+        path: png,
+        format: 'base64',
+        maxBytes: 50_000_000,
+      });
+      const uri = await readFile({
+        path: png,
+        format: 'dataUri',
+        maxBytes: 50_000_000,
+      });
+      const small = await readFile({
+        path: png,
+        format: 'base64',
+        maxBytes: 10,
+      });
+      if (small.success)
+        throw new Error('a file over maxBytes should be refused');
+      const gallery = await saveFile({
+        sourcePath: png,
+        fileName: 'printerkit-rn.png',
+        location: FileLocation.PICTURES,
+        subFolder: 'PrinterKitRN',
+        overwrite: true,
+      });
+      if (!gallery.success) throw new Error(`gallery: ${gallery.error}`);
+      return `PNG ${hex.sizeBytes} bytes; base64 ${b64.content?.length} chars; ${uri.content?.slice(0, 22)}...; saved to Gallery; over-limit refused`;
+    });
+
   const onTestPage = () => run('printTestPage()', () => printTestPage());
 
   const onDisconnect = () =>
@@ -259,6 +389,30 @@ export default function App() {
           busy={busy}
           activeLabel={activeLabel}
           onPress={onTestPage}
+        />
+        <ActionButton
+          label="htmlToPdf(outputPath)"
+          busy={busy}
+          activeLabel={activeLabel}
+          onPress={onCustomPath}
+        />
+        <ActionButton
+          label="saveFile(text) -> removeFile"
+          busy={busy}
+          activeLabel={activeLabel}
+          onPress={onSaveRemove}
+        />
+        <ActionButton
+          label="htmlToImage -> readFile"
+          busy={busy}
+          activeLabel={activeLabel}
+          onPress={onHtmlToImage}
+        />
+        <ActionButton
+          label="readDir(path)"
+          busy={busy}
+          activeLabel={activeLabel}
+          onPress={onReadDir}
         />
         <ActionButton
           label="htmlToPdf + saveFile"

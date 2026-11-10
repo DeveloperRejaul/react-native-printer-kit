@@ -4,6 +4,7 @@ import type {
   PrinterConnectionType as PrinterConnectionTypeValue,
   PrinterFilter as PrinterFilterValue,
   PrinterImageType as PrinterImageTypeValue,
+  ReadFileFormat as ReadFileFormatValue,
 } from './NativeReactNativePrinterKit';
 
 // Runtime values for the string unions the native module uses, so callers can write
@@ -51,6 +52,18 @@ export const FileLocation = {
   APP_FILES: 'APP_FILES',
   DOWNLOADS: 'DOWNLOADS',
   DOCUMENTS: 'DOCUMENTS',
+  PICTURES: 'PICTURES',
   CUSTOM_FOLDER: 'CUSTOM_FOLDER',
 } as const satisfies Record<FileLocationValue, FileLocationValue>;
 export type FileLocation = (typeof FileLocation)[keyof typeof FileLocation];
+
+/** The shape `readFile` returns the content in. */
+export const ReadFileFormat = {
+  BASE64: 'base64',
+  DATA_URI: 'dataUri',
+  TEXT: 'text',
+  HEX: 'hex',
+  BYTES: 'bytes',
+} as const satisfies Record<string, ReadFileFormatValue>;
+export type ReadFileFormat =
+  (typeof ReadFileFormat)[keyof typeof ReadFileFormat];

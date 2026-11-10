@@ -76,12 +76,29 @@ export type PrinterStatus = {
   hasError: boolean | null;
 };
 
+/**
+ * `PICTURES` is the public Pictures folder, so the image also shows in the Gallery app; it accepts images
+ * only (a `.png`/`.jpg` file name or an `image/...` `mimeType`) and refuses anything else.
+ */
 export type FileLocation =
-  'CACHE' | 'APP_FILES' | 'DOWNLOADS' | 'DOCUMENTS' | 'CUSTOM_FOLDER';
+  | 'CACHE'
+  | 'APP_FILES'
+  | 'DOWNLOADS'
+  | 'DOCUMENTS'
+  | 'PICTURES'
+  | 'CUSTOM_FOLDER';
 
 export type SaveFileParams = {
-  sourcePath: string;
-  /** Defaults to the source file's name. */
+  /** Path of an existing file to copy. Give exactly one of `sourcePath`, `text` or `base64`. */
+  sourcePath?: string;
+  /** Content to save as UTF-8 text, instead of `sourcePath`. Needs `fileName`. */
+  text?: string;
+  /**
+   * Content to save as bytes (base64 encoded; a `data:...;base64,` prefix is fine), instead of
+   * `sourcePath`. Needs `fileName`. Use it for images, PDFs and other binary data.
+   */
+  base64?: string;
+  /** Defaults to the source file's name. Required with `text` or `base64`. */
   fileName?: string;
   /** Default `DOWNLOADS`. */
   location?: FileLocation;
@@ -147,6 +164,15 @@ export type PrintPdfParams = {
 
 export type HtmlToPdfParams = {
   html: string;
+  /**
+   * Full path of the PDF to write, file name included (e.g.
+   * `/data/user/0/<your.app>/files/invoice.pdf`). Leave it out to get a fresh file with a
+   * generated name in the app's cache folder. The folder must already exist and be one the
+   * app may write to (its own files/cache folders); an existing file is overwritten. To put
+   * the PDF in a public folder such as Downloads, convert first and then call `saveFile`.
+   * The path that was written is returned.
+   */
+  outputPath?: string;
   pageWidthDp?: number;
   heightDp?: number;
   minPageHeightDp?: number;
@@ -162,6 +188,93 @@ export type PrintHtmlParams = {
   bandHeightDots?: number;
   /** See PrintImageParams.bandDelayMs. */
   bandDelayMs?: number;
+};
+
+export type RemoveFileParams = {
+  /**
+   * What to delete: an absolute file path, or the `content://` Uri that `saveFile` returned (for
+   * a file in Downloads/Documents on Android 10+, which only works for files your app created).
+   */
+  path: string;
+};
+
+export type RemoveFileResult = {
+  success: boolean;
+  path: string | null;
+  uri: string | null;
+  fileName: string | null;
+  error: string | null;
+};
+
+/**
+ * The shape `readFile` returns the content in: `base64` (plain), `dataUri` (`data:<type>;base64,...`), `text`
+ * (decoded string), `hex` (two lower-case digits per byte) or `bytes` (array of numbers 0..255, max 1 MB).
+ */
+export type ReadFileFormat = 'base64' | 'dataUri' | 'text' | 'hex' | 'bytes';
+
+export type ReadFileParams = {
+  /** An absolute file path, or the `content://` Uri that `saveFile` returned. */
+  path: string;
+  /** Default `base64`. */
+  format?: ReadFileFormat;
+  /** Only for `text`: `UTF-8` (default), `UTF-16`, `ISO-8859-1`, ... */
+  encoding?: string;
+  /** Files bigger than this are refused instead of loaded. Default 10 MB; `bytes` is always capped at 1 MB. */
+  maxBytes?: number;
+};
+
+export type ReadFileResult = {
+  success: boolean;
+  format: ReadFileFormat | null;
+  /** Set for `base64`, `dataUri`, `text` and `hex`. */
+  content: string | null;
+  /** Set for `bytes`. */
+  bytes: number[] | null;
+  sizeBytes: number | null;
+  /** From the file extension, or the content provider's answer for a Uri. */
+  mimeType: string | null;
+  error: string | null;
+};
+
+export type HtmlToImageParams = {
+  html: string;
+  /** Full path of the image to write, file name included (folder must exist). Default: generated name in the cache folder. */
+  outputPath?: string;
+  /** Default `PNG`. */
+  imageType?: PrinterImageType;
+  /** Width of the image in pixels. Default: twice the page width. */
+  targetWidthPx?: number;
+  pageWidthDp?: number;
+  heightDp?: number;
+  minPageHeightDp?: number;
+};
+
+export type ReadDirParams = {
+  /**
+   * The folder to read: an absolute folder path, or a `content://` Uri of a folder the user picked
+   * with the system folder picker (or the `path` of a sub-folder returned by an earlier call).
+   */
+  path: string;
+};
+
+export type DirEntry = {
+  name: string;
+  /** Pass it to `removeFile` (a file) or to `readDir` again (a folder). */
+  path: string;
+  isDirectory: boolean;
+  /** `null` for a folder. */
+  sizeBytes: number | null;
+  /** Milliseconds since 1970, `null` if unknown. */
+  lastModified: number | null;
+};
+
+export type ReadDirResult = {
+  success: boolean;
+  path: string | null;
+  /** Just the names, in the same order as `entries`. */
+  names: string[];
+  entries: DirEntry[];
+  error: string | null;
 };
 
 export type OpenFileParams = {
@@ -256,8 +369,9 @@ export interface Spec extends TurboModule {
   printTestPage(): Promise<void>;
 
   /**
-   * Copies a finished file (e.g. the PDF from `htmlToPdf`) to cache, app storage, public
-   * Downloads/Documents or a chosen folder. Never rejects: check `result.success`.
+   * Saves a file to cache, app storage, public Downloads/Documents or a chosen folder: either
+   * copies an existing file (`sourcePath`, e.g. the PDF from `htmlToPdf`) or writes content you
+   * pass directly (`text` or `base64`, with a `fileName`). Never rejects: check `result.success`.
    */
   saveFile(params: SaveFileParams): Promise<SaveFileResult>;
 
@@ -308,6 +422,34 @@ export interface Spec extends TurboModule {
    * content with Bangla or other non-Latin text, or any real HTML/CSS layout.
    */
   printHtml(params: PrintHtmlParams): Promise<boolean>;
+
+  /**
+   * Deletes ONE file (what `saveFile` wrote, or any file your app may delete). Never a folder, never a
+   * pattern; cannot be undone. A missing file is reported as a failure ("File not found").
+   * Never rejects: check `result.success`.
+   */
+  removeFile(params: RemoveFileParams): Promise<RemoveFileResult>;
+
+  /**
+   * Reads ONE file and returns its content in the shape `format` asks for (`base64`, `dataUri`, `text`,
+   * `hex` or `bytes`). Read-only. A file over `maxBytes` (default 10 MB) is refused instead of loaded.
+   * Never rejects: check `result.success`.
+   */
+  readFile(params: ReadFileParams): Promise<ReadFileResult>;
+
+  /**
+   * Renders HTML to ONE image file (PNG or JPEG) and returns its absolute path, or `null` on failure.
+   * It is `htmlToPdf` plus one rendered page, so a very tall page makes a very large bitmap and can run
+   * out of memory (then the result is `null`). For base64 pass the path to `readFile`.
+   */
+  htmlToImage(params: HtmlToImageParams): Promise<string | null>;
+
+  /**
+   * Reads ONE folder: the files and folders directly inside it (not their contents), folders first and
+   * then A-Z. Read-only. A path that is a file, missing or relative is refused. Never rejects: check
+   * `result.success`.
+   */
+  readDir(params: ReadDirParams): Promise<ReadDirResult>;
 
   /**
    * Opens a file with whatever app the user has installed that can handle its
